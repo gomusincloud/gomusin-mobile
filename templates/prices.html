@@ -1,0 +1,7 @@
+
+{% extends "base.html" %}{% block content %}
+<h1>시세표관리</h1>
+{% if session.get('role')=='admin' %}<form class="form-card compact" method="post"><div class="formgrid"><input name="device" placeholder="기종" required><select name="carrier"><option>SKT</option><option>KT</option><option>LG U+</option></select><select name="type"><option>번호이동</option><option>기기변경</option></select><input name="price" placeholder="가격/조건" required></div><button class="btn">시세 등록</button></form>{% endif %}
+<section><table><tr><th>기종</th><th>통신사</th><th>유형</th><th>가격/조건</th><th>수정일</th>{% if session.get('role')=='admin' %}<th></th>{% endif %}</tr>
+{% for p in prices %}<tr><td>{{p.device}}</td><td>{{p.carrier}}</td><td>{{p.type}}</td><td><b>{{p.price}}</b></td><td>{{p.updated_at.strftime('%Y-%m-%d %H:%M') if p.updated_at else '-'}}</td>{% if session.get('role')=='admin' %}<td><form method="post" action="{{url_for('price_delete',id=p.id)}}" onsubmit="return confirm('삭제할까요?')"><button class="link danger">삭제</button></form></td>{% endif %}</tr>{% else %}<tr><td colspan="6">등록된 시세가 없습니다.</td></tr>{% endfor %}</table></section>
+{% endblock %}

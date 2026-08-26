@@ -1,0 +1,11 @@
+
+{% extends "base.html" %}{% block content %}
+<h1>대시보드</h1><div class="cards">
+<div class="card"><small>전체 고객</small><strong>{{total}}명</strong></div>
+<div class="card"><small>오늘 등록 고객</small><strong class="red">{{today_count}}명</strong></div>
+<div class="card"><small>최근 예약</small><strong>{{bookings|length}}건</strong></div>
+</div>
+<div class="grid2"><section><h2>최근 고객</h2><table><tr><th>고객</th><th>기종</th><th>통신사</th><th>상태</th></tr>
+{% for c in recent %}<tr><td>{{c.name}}</td><td>{{c.device or '-'}}</td><td>{{c.carrier or '-'}}</td><td>{{c.status}}</td></tr>{% else %}<tr><td colspan="4">등록된 고객이 없습니다.</td></tr>{% endfor %}</table></section>
+<section><h2>최근 예약</h2>{% for b in bookings %}<div class="booking"><b>{{b.name}}</b><br><small>{{b.visit_date or '날짜 미정'}} · {{b.device or '기종 미정'}}</small></div>{% else %}<p>예약이 없습니다.</p>{% endfor %}</section></div>
+{% endblock %}

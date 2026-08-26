@@ -1,0 +1,8 @@
+
+{% extends "base.html" %}{% block content %}
+<h1>예약관리</h1><div class="grid2"><form class="form-card" method="post"><h2>새 예약 등록</h2>
+<label>고객명 *</label><input name="name" required><label>연락처</label><input name="phone">
+<label>방문 예정일</label><input type="date" name="visit_date"><label>관심 기종</label><input name="device">
+<label>메모</label><textarea name="memo"></textarea><button class="btn">예약 등록</button></form>
+<section><h2>예약 목록</h2>{% for b in bookings %}<div class="booking"><b>{{b.name}}</b> · {{b.phone or '-'}}<br><small>{{b.visit_date or '날짜 미정'}} / {{b.device or '기종 미정'}}<br>{{b.memo or ''}}</small></div>{% else %}<p>예약이 없습니다.</p>{% endfor %}</section></div>
+{% endblock %}

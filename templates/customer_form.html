@@ -1,0 +1,11 @@
+
+{% extends "base.html" %}{% block content %}
+<h1>{{'고객 수정' if customer else '고객 등록'}}</h1>
+<form class="form-card" method="post"><div class="formgrid">
+<div><label>고객명 *</label><input name="name" required value="{{customer.name if customer else ''}}"></div>
+<div><label>연락처</label><input name="phone" value="{{customer.phone if customer else ''}}"></div>
+<div><label>구매/문의 기종</label><input name="device" value="{{customer.device if customer else ''}}"></div>
+<div><label>통신사</label><select name="carrier"><option value="">선택</option>{% for x in ['SKT','KT','LG U+','알뜰폰'] %}<option {% if customer and customer.carrier==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></div>
+<div><label>상태</label><select name="status">{% for x in ['상담중','예약완료','개통진행','개통완료','보류'] %}<option {% if customer and customer.status==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></div></div>
+<label>메모</label><textarea name="memo" rows="5">{{customer.memo if customer else ''}}</textarea><button class="btn">저장</button></form>
+{% endblock %}

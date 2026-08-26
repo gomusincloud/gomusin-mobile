@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>직원 관리</h1>
+
+<div class="grid2">
+
+    <!-- 직원 추가 -->
+    <section>
+
+        <h2>직원 계정 추가</h2>
+
+        <form method="POST">
+
+            <label>직원 아이디</label>
+            <input
+                type="text"
+                name="username"
+                placeholder="직원 아이디"
+                required
+            >
+
+            <label>비밀번호</label>
+            <input
+                type="password"
+                name="password"
+                placeholder="비밀번호"
+                required
+            >
+
+            <label>비밀번호 확인</label>
+            <input
+                type="password"
+                name="password_confirm"
+                placeholder="비밀번호 다시 입력"
+                required
+            >
+
+            <button type="submit">
+                직원 계정 만들기
+            </button>
+
+        </form>
+
+    </section>
+
+
+    <!-- 안내 -->
+    <section>
+
+        <h2>직원 계정 안내</h2>
+
+        <p>
+            직원은 본인이 부여받은 아이디와 비밀번호로 로그인할 수 있습니다.
+        </p>
+
+        <p>
+            직원은 고객 등록, 고객 수정, 예약 등록 등의 업무를 사용할 수 있습니다.
+        </p>
+
+        <p>
+            직원 계정 관리와 시세 등록·삭제, 고객 삭제는 관리자만 사용할 수 있습니다.
+        </p>
+
+    </section>
+
+</div>
+
+
+<!-- 계정 목록 -->
+
+<section>
+
+    <h2>등록된 계정</h2>
+
+    <table>
+
+        <tr>
+            <th>아이디</th>
+            <th>권한</th>
+            <th>가입일</th>
+            <th>관리</th>
+        </tr>
+
+        {% for user in users %}
+
+        <tr>
+
+            <td>
+                <b>{{ user.username }}</b>
+            </td>
+
+            <td>
+
+                {% if user.role == "admin" %}
+                    관리자
+                {% else %}
+                    직원
+                {% endif %}
+
+            </td>
+
+            <td>
+                {{ user.created_at.strftime('%Y-%m-%d') }}
+            </td>
+
+            <td>
+
+                {% if user.role == "staff" %}
+
+                    <!-- 비밀번호 변경 -->
+
+                    <form
+                        method="POST"
+                        action="{{ url_for('staff_password', user_id=user.id) }}"
+                        style="display:inline-block;"
+                    >
+
+                        <input
+                            type="password"
+                            name="new_password"
+                            placeholder="새 비밀번호"
+                            required
+                        >
+
+                        <input
+                            type="password"
+                            name="confirm_password"
+                            placeholder="비밀번호 확인"
+                            required
+                        >
+
+                        <button type="submit">
+                            비밀번호 변경
+                        </button>
+
+                    </form>
+
+
+                    <!-- 직원 삭제 -->
+
+                    <form
+                        method="POST"
+                        action="{{ url_for('staff_delete', user_id=user.id) }}"
+                        style="display:inline-block;"
+                        onsubmit="return confirm('정말 이 직원 계정을 삭제하시겠습니까?');"
+                    >
+
+                        <button
+                            type="submit"
+                            class="red"
+                        >
+                            삭제
+                        </button>
+
+                    </form>
+
+                {% else %}
+
+                    <span>관리자 계정</span>
+
+                {% endif %}
+
+            </td>
+
+        </tr>
+
+        {% else %}
+
+        <tr>
+
+            <td colspan="4">
+                등록된 계정이 없습니다.
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+</section>
+
+{% endblock %}

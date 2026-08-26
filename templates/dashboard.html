@@ -1,11 +1,956 @@
+괜찮아. 지금 상황이면 코드 자체보다 배포/로그인 세션 문제인지 먼저 확인하면 돼.
 
-{% extends "base.html" %}{% block content %}
-<h1>대시보드</h1><div class="cards">
-<div class="card"><small>전체 고객</small><strong>{{total}}명</strong></div>
-<div class="card"><small>오늘 등록 고객</small><strong class="red">{{today_count}}명</strong></div>
-<div class="card"><small>최근 예약</small><strong>{{bookings|length}}건</strong></div>
+특히 우리가 방금 base.html에 넣은 조건은:
+
+{% if session.get('role') == 'admin' %}
+
+이거라서, 현재 로그인한 계정의 role이 admin이 아니면 직원관리가 안 보여.
+
+지금 바로 이것부터 확인하자.
+
+1️⃣ 현재 관리자 계정으로 로그아웃
+
+사이트에서 로그아웃 → 다시 관리자 계정으로 로그인해줘.
+
+그 다음 왼쪽 메뉴를 확인해봐.
+
+직원관리가 나타나는지 봐줘.
+
+2️⃣ 그래도 안 나오면
+
+현재 로그인한 계정이 실제로 관리자 권한인지 확인해야 해.
+
+app.py에 관리자 계정을 만드는 부분이 이렇게 되어 있지?
+
+user = User(
+    username=username,
+    password_hash=generate_password_hash(password),
+    role="admin"
+)
+
+그리고 기존 계정이면:
+
+if user.role != "admin":
+    user.role = "admin"
+    db.session.commit()
+
+이 코드가 있으니까 Render의 ADMIN_USERNAME과 현재 로그인 아이디가 동일하다면 관리자 권한이 되어야 해.
+
+3️⃣ 가장 중요한 확인
+
+Render에서 환경변수(Environment Variables)를 열어봐.
+
+다음 두 개가 있는지 확인해줘.
+
+ADMIN_USERNAME
+ADMIN_PASSWORD
+
+예를 들어:
+
+ADMIN_USERNAME = 기존 관리자 아이디
+ADMIN_PASSWORD = 기존 관리자 비밀번호
+
+⚠️ 비밀번호 자체를 나한테 보내지는 마.
+
+4️⃣ 그리고 Render에서 다시 배포
+
+코드를 수정했어도 Render에 새 코드가 배포되지 않았다면 기존 base.html이 그대로 사용돼.
+
+Render에서 프로젝트를 열고:
+
+Manual Deploy → Deploy latest commit
+
+으로 다시 배포해줘.
+
+배포가 완료된 다음에는 브라우저에서 기존 사이트를 새로고침하지 말고 로그아웃 후 다시 로그인해봐.
+
+그런데 더 빠른 방법이 있어
+
+내가 지금 네 코드 상태를 보면 관리자 여부를 확인하는 별도의 화면을 하나 만들어서 바로 확인하는 게 제일 확실해.
+
+우리가 지금 만든 사이트가 실제로 어떤 상태인지 하나씩 확인하면서 진행하자.
+
+우선 Render에서 로그아웃 → 관리자 계정으로 다시 로그인한 뒤에도 직원관리가 안 보이는지 확인해줘.
+
+안 보이면 Render의 ADMIN_USERNAME 환경변수가 설정되어 있는지만 확인해서 알려줘.
+비밀번호는 절대 보내지 않아도 돼.
+
+그 다음 내가 정확히 다음 수정할 부분을 하나씩 안내해줄게.
+
+이제 메뉴들을 상세히 설정할수있게 도와줄수있어?
+
+물론이지. 이제부터는 현재 만들어진 기본 관리시스템을 실제 고무신모바일 매장에서 사용하는 업무용 프로그램처럼 상세하게 바꿔가면 돼.
+
+지금 구조를 보면 크게 이렇게 발전시키는 게 좋겠어.
+
+① 대시보드
+
+지금의 단순 숫자형 대시보드를 실제 업무 현황판으로 변경
+
+오늘 상담 고객
+오늘 방문 예약
+신규 고객
+개통 예정
+개통 완료
+미처리 고객
+최근 등록 고객
+오늘 예약 현황
+직원별 처리 건수
+② 고객관리
+
+현재보다 훨씬 상세하게
+
+고객 기본정보
+
+고객명
+연락처
+생년월일
+주소
+통신사
+현재 기종
+변경 희망 기종
+
+상담정보
+
+상담 상태
+상담 내용
+직원 메모
+고객 요구사항
+예상 방문일
+재연락 예정일
+
+판매/개통정보
+
+개통일
+개통 기종
+번호이동 / 기기변경 / 신규가입
+할부 여부
+요금제
+부가서비스
+지원금
+최종 판매금액
+사은품
+
+그리고 고객을 클릭하면 고객 상세페이지에서 상담 이력을 계속 쌓을 수 있게 만들 수 있어.
+
+③ 예약관리
+
+단순 예약목록이 아니라
+
+예약자
+연락처
+방문 날짜
+방문 시간
+희망 기종
+통신사
+예약 상태
+
+를 관리하고
+
+예약 → 방문 → 상담 → 개통완료 → 취소
+
+식으로 상태를 변경하게 만들 수 있어.
+
+④ 시세표관리
+
+이 부분은 매장 업무에서 꽤 중요하니까 제대로 만드는 게 좋아.
+
+예를 들어
+
+갤럭시 S26 Ultra
+
+통신사	판매유형	요금제	할부	지원금	실구매가
+SKT	기기변경	109,000	24개월	...	...
+KT	번호이동	99,000	24개월	...	...
+LGU+	번호이동	95,000	24개월	...	...
+
+처럼 관리하고 검색/필터도 가능하게 만들 수 있어.
+
+⑤ 직원관리
+
+방금 만든 기능을 더 발전시켜서
+
+관리자 / 직원 권한
+직원별 고객 담당
+직원별 상담 건수
+직원별 개통 건수
+직원 계정 잠금
+비밀번호 변경
+직원 퇴사 처리
+
+등까지 관리할 수 있어.
+
+⑥ 추가하면 좋은 메뉴
+
+나는 지금 사이트에 업무관리 메뉴를 하나 더 만드는 것도 추천해.
+
+여기 안에
+
+상담관리 / 개통관리 / 재연락관리 / 할일관리
+
+를 넣으면 직원들이 매일 사용하는 시스템처럼 만들 수 있어.
+
+그리고 중요한 건 한꺼번에 전부 바꾸지 않는 것이야.
+
+지금 DB 구조에서 처음부터 너무 많이 바꾸면 기존 고객/예약 데이터와 충돌할 가능성이 있어. 그래서 나는 다음 순서로 바꾸는 걸 추천해.
+
+1단계 → 고객관리 완성
+2단계 → 예약관리 완성
+3단계 → 시세표 완성
+4단계 → 개통/판매관리 추가
+5단계 → 대시보드 고도화
+6단계 → 직원별 권한/실적
+
+특히 고객관리부터 제대로 만들어 놓으면 이후 메뉴들이 전부 연결되기 쉬워.
+
+다음 단계는 현재 customers.html과 customer_form.html을 기준으로 고객관리 화면부터 매장용으로 완전히 개편하면 돼. customers.html 전체 내용을 올려주면 현재 사이트 디자인을 유지하면서 바로 수정 코드로 만들어줄게.
+
+시세표관리는 없어도 될거 같은데 첫 화면에 달력과 함께 금일 처리해야할 고객 약속이 나왔으면 좋겠어 
+
+좋아. 첫 화면을 완전히 “오늘 매장에서 무엇을 처리해야 하는지 바로 보는 화면”으로 바꾸자.
+
+구성은 이렇게 할게.
+
+왼쪽: 이번 달 달력
+오른쪽: 선택한 날짜의 예약/약속
+상단: 전체 고객 · 오늘 등록 고객 · 오늘 약속 건수
+오늘 날짜: 자동으로 선택
+예약이 있는 날짜: 달력에 ● 표시
+날짜 클릭: 해당 날짜 약속이 오른쪽에 바로 표시
+시세표관리: 왼쪽 메뉴에서 제거
+
+기존 예약 데이터는 그대로 사용하니까 기존 예약 기능도 유지된다.
+
+1. app.py 수정
+
+현재 app.py에서 dashboard() 함수 부분만 아래 코드로 교체해줘.
+
+@app.route("/")
+@login_required
+def dashboard():
+
+    try:
+
+        prepare_database()
+
+        today = datetime.now().date()
+
+        total = Customer.query.count()
+
+        today_count = Customer.query.filter(
+            db.func.date(Customer.created_at) == str(today)
+        ).count()
+
+        recent = Customer.query.order_by(
+            Customer.created_at.desc()
+        ).limit(8).all()
+
+        recent_bookings = Booking.query.order_by(
+            Booking.created_at.desc()
+        ).limit(5).all()
+
+        # =====================================================
+        # 달력에 표시할 전체 예약 데이터
+        # =====================================================
+
+        all_bookings = Booking.query.order_by(
+            Booking.created_at.asc()
+        ).all()
+
+        calendar_bookings = []
+
+        for booking in all_bookings:
+
+            calendar_bookings.append({
+                "id": booking.id,
+                "name": booking.name,
+                "phone": booking.phone or "",
+                "visit_date": booking.visit_date or "",
+                "device": booking.device or "",
+                "memo": booking.memo or ""
+            })
+
+        # =====================================================
+        # 오늘 예약
+        # =====================================================
+
+        today_bookings = []
+
+        today_string = str(today)
+
+        for booking in all_bookings:
+
+            visit_date = booking.visit_date or ""
+
+            if visit_date[:10] == today_string:
+                today_bookings.append(booking)
+
+    except Exception as e:
+
+        return (
+            f"데이터베이스 오류: {str(e)}",
+            500
+        )
+
+    return render_template(
+        "dashboard.html",
+        total=total,
+        today_count=today_count,
+        bookings=recent_bookings,
+        today_bookings=today_bookings,
+        calendar_bookings=calendar_bookings
+    )
+
+이렇게 하면 기존 예약 데이터를 달력에서도 사용할 수 있어.
+
+2. dashboard.html 전체 교체
+
+현재 dashboard.html 내용을 전부 지우고 아래로 교체해줘.
+
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="dashboard-header">
+
+    <div>
+        <h1>오늘의 업무</h1>
+        <p id="todayText"></p>
+    </div>
+
+    <a href="{{ url_for('bookings') }}" class="dashboard-action">
+        + 예약 등록
+    </a>
+
 </div>
-<div class="grid2"><section><h2>최근 고객</h2><table><tr><th>고객</th><th>기종</th><th>통신사</th><th>상태</th></tr>
-{% for c in recent %}<tr><td>{{c.name}}</td><td>{{c.device or '-'}}</td><td>{{c.carrier or '-'}}</td><td>{{c.status}}</td></tr>{% else %}<tr><td colspan="4">등록된 고객이 없습니다.</td></tr>{% endfor %}</table></section>
-<section><h2>최근 예약</h2>{% for b in bookings %}<div class="booking"><b>{{b.name}}</b><br><small>{{b.visit_date or '날짜 미정'}} · {{b.device or '기종 미정'}}</small></div>{% else %}<p>예약이 없습니다.</p>{% endfor %}</section></div>
+
+
+<!-- =====================================================
+     상단 요약
+===================================================== -->
+
+<div class="cards">
+
+    <div class="card">
+        <small>전체 고객</small>
+        <strong>{{ total }}명</strong>
+    </div>
+
+    <div class="card">
+        <small>오늘 등록 고객</small>
+        <strong class="red">{{ today_count }}명</strong>
+    </div>
+
+    <div class="card">
+        <small>오늘 약속</small>
+        <strong>{{ today_bookings|length }}건</strong>
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     달력 + 오늘 약속
+===================================================== -->
+
+<div class="calendar-layout">
+
+
+    <!-- 달력 -->
+
+    <section class="calendar-box">
+
+        <div class="calendar-top">
+
+            <button
+                type="button"
+                onclick="changeMonth(-1)"
+                class="calendar-btn"
+            >
+                ‹
+            </button>
+
+            <h2 id="calendarTitle"></h2>
+
+            <button
+                type="button"
+                onclick="changeMonth(1)"
+                class="calendar-btn"
+            >
+                ›
+            </button>
+
+        </div>
+
+
+        <div class="calendar-week">
+
+            <div>일</div>
+            <div>월</div>
+            <div>화</div>
+            <div>수</div>
+            <div>목</div>
+            <div>금</div>
+            <div>토</div>
+
+        </div>
+
+
+        <div
+            id="calendar"
+            class="calendar"
+        ></div>
+
+
+        <div class="calendar-legend">
+
+            <span class="legend-dot"></span>
+            예약 있음
+
+        </div>
+
+    </section>
+
+
+    <!-- 선택한 날짜의 약속 -->
+
+    <section class="today-box">
+
+        <div class="section-title">
+
+            <div>
+                <h2 id="selectedDateTitle">
+                    오늘 약속
+                </h2>
+
+                <small id="selectedDateCount"></small>
+            </div>
+
+            <a href="{{ url_for('bookings') }}">
+                전체 예약 →
+            </a>
+
+        </div>
+
+
+        <div
+            id="appointmentList"
+            class="appointment-list"
+        ></div>
+
+    </section>
+
+</div>
+
+
+<!-- =====================================================
+     최근 고객
+===================================================== -->
+
+<section class="recent-box">
+
+    <div class="section-title">
+
+        <h2>최근 등록 고객</h2>
+
+        <a href="{{ url_for('customers') }}">
+            고객 전체보기 →
+        </a>
+
+    </div>
+
+
+    <table>
+
+        <tr>
+            <th>고객</th>
+            <th>연락처</th>
+            <th>기종</th>
+            <th>통신사</th>
+            <th>상태</th>
+        </tr>
+
+
+        {% for c in recent %}
+
+        <tr>
+
+            <td>
+                <b>{{ c.name }}</b>
+            </td>
+
+            <td>
+                {{ c.phone or '-' }}
+            </td>
+
+            <td>
+                {{ c.device or '-' }}
+            </td>
+
+            <td>
+                {{ c.carrier or '-' }}
+            </td>
+
+            <td>
+                {{ c.status }}
+            </td>
+
+        </tr>
+
+        {% else %}
+
+        <tr>
+            <td colspan="5">
+                등록된 고객이 없습니다.
+            </td>
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+</section>
+
+
+<script>
+
+const bookingData = {{ calendar_bookings | tojson }};
+
+const now = new Date();
+
+let currentYear = now.getFullYear();
+let currentMonth = now.getMonth();
+
+let selectedDate =
+    now.getFullYear() +
+    "-" +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(now.getDate()).padStart(2, "0");
+
+
+function makeDateString(year, month, day) {
+
+    return year +
+        "-" +
+        String(month + 1).padStart(2, "0") +
+        "-" +
+        String(day).padStart(2, "0");
+
+}
+
+
+function formatKoreanDate(dateString) {
+
+    const parts = dateString.split("-");
+
+    if (parts.length !== 3) {
+        return dateString;
+    }
+
+    return (
+        parts[0] +
+        "년 " +
+        Number(parts[1]) +
+        "월 " +
+        Number(parts[2]) +
+        "일"
+    );
+
+}
+
+
+function getBookingsForDate(dateString) {
+
+    return bookingData.filter(function(booking) {
+
+        const visitDate = booking.visit_date || "";
+
+        return visitDate.substring(0, 10) === dateString;
+
+    });
+
+}
+
+
+function renderCalendar() {
+
+    const calendar =
+        document.getElementById("calendar");
+
+    const title =
+        document.getElementById("calendarTitle");
+
+
+    title.textContent =
+        currentYear + "년 " +
+        (currentMonth + 1) + "월";
+
+
+    calendar.innerHTML = "";
+
+
+    const firstDay =
+        new Date(
+            currentYear,
+            currentMonth,
+            1
+        ).getDay();
+
+
+    const lastDate =
+        new Date(
+            currentYear,
+            currentMonth + 1,
+            0
+        ).getDate();
+
+
+    const previousLastDate =
+        new Date(
+            currentYear,
+            currentMonth,
+            0
+        ).getDate();
+
+
+    // 이전 달 날짜
+
+    for (
+        let i = firstDay - 1;
+        i >= 0;
+        i--
+    ) {
+
+        const day =
+            previousLastDate - i;
+
+        const cell =
+            document.createElement("div");
+
+        cell.className =
+            "calendar-day other-month";
+
+        cell.textContent = day;
+
+        calendar.appendChild(cell);
+
+    }
+
+
+    // 이번 달 날짜
+
+    for (
+        let day = 1;
+        day <= lastDate;
+        day++
+    ) {
+
+        const dateString =
+            makeDateString(
+                currentYear,
+                currentMonth,
+                day
+            );
+
+
+        const cell =
+            document.createElement("div");
+
+        cell.className =
+            "calendar-day";
+
+
+        const number =
+            document.createElement("span");
+
+        number.className =
+            "day-number";
+
+        number.textContent = day;
+
+        cell.appendChild(number);
+
+
+        // 오늘 표시
+
+        if (
+            dateString ===
+            makeDateString(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate()
+            )
+        ) {
+
+            cell.classList.add("today");
+
+        }
+
+
+        // 선택된 날짜 표시
+
+        if (
+            dateString ===
+            selectedDate
+        ) {
+
+            cell.classList.add("selected");
+
+        }
+
+
+        // 예약 확인
+
+        const dayBookings =
+            getBookingsForDate(
+                dateString
+            );
+
+
+        if (dayBookings.length > 0) {
+
+            const dot =
+                document.createElement("span");
+
+            dot.className =
+                "booking-dot";
+
+            cell.appendChild(dot);
+
+
+            const count =
+                document.createElement("small");
+
+            count.className =
+                "booking-count";
+
+            count.textContent =
+                dayBookings.length + "건";
+
+            cell.appendChild(count);
+
+        }
+
+
+        cell.onclick = function() {
+
+            selectedDate =
+                dateString;
+
+            renderCalendar();
+
+            renderAppointments();
+
+        };
+
+
+        calendar.appendChild(cell);
+
+    }
+
+
+    // 다음 달 날짜
+
+    const totalCells =
+        firstDay + lastDate;
+
+    const remaining =
+        totalCells % 7 === 0
+            ? 0
+            : 7 - (totalCells % 7);
+
+
+    for (
+        let day = 1;
+        day <= remaining;
+        day++
+    ) {
+
+        const cell =
+            document.createElement("div");
+
+        cell.className =
+            "calendar-day other-month";
+
+        cell.textContent = day;
+
+        calendar.appendChild(cell);
+
+    }
+
+}
+
+
+function renderAppointments() {
+
+    const list =
+        document.getElementById(
+            "appointmentList"
+        );
+
+    const title =
+        document.getElementById(
+            "selectedDateTitle"
+        );
+
+    const count =
+        document.getElementById(
+            "selectedDateCount"
+        );
+
+
+    title.textContent =
+        formatKoreanDate(
+            selectedDate
+        );
+
+
+    const appointments =
+        getBookingsForDate(
+            selectedDate
+        );
+
+
+    count.textContent =
+        appointments.length +
+        "건의 약속";
+
+
+    list.innerHTML = "";
+
+
+    if (appointments.length === 0) {
+
+        list.innerHTML = `
+            <div class="no-appointment">
+                <div>📭</div>
+                <strong>등록된 약속이 없습니다.</strong>
+                <p>이 날짜에는 처리할 예약이 없습니다.</p>
+            </div>
+        `;
+
+        return;
+
+    }
+
+
+    appointments.forEach(function(booking) {
+
+        const item =
+            document.createElement("div");
+
+        item.className =
+            "appointment";
+
+
+        const visitDate =
+            booking.visit_date || "";
+
+
+        let visitTime = "";
+
+
+        if (
+            visitDate.length > 10
+        ) {
+
+            visitTime =
+                visitDate.substring(11);
+
+        }
+
+
+        item.innerHTML = `
+
+            <div class="appointment-top">
+
+                <strong>
+                    ${booking.name || "예약자 없음"}
+                </strong>
+
+                <span class="appointment-time">
+                    ${visitTime || "시간 미정"}
+                </span>
+
+            </div>
+
+
+            <div class="appointment-info">
+
+                <div>
+                    📞 ${booking.phone || "-"}
+                </div>
+
+                <div>
+                    📱 ${booking.device || "기종 미정"}
+                </div>
+
+            </div>
+
+
+            ${
+                booking.memo
+                ? `
+                    <div class="appointment-memo">
+                        ${booking.memo}
+                    </div>
+                `
+                : ""
+            }
+
+        `;
+
+
+        list.appendChild(item);
+
+    });
+
+}
+
+
+function changeMonth(amount) {
+
+    currentMonth += amount;
+
+
+    if (currentMonth < 0) {
+
+        currentMonth = 11;
+        currentYear--;
+
+    }
+
+
+    if (currentMonth > 11) {
+
+        currentMonth = 0;
+        currentYear++;
+
+    }
+
+
+    renderCalendar();
+
+}
+
+
+document.getElementById(
+    "todayText"
+).textContent =
+
+    now.getFullYear() +
+    "년 " +
+    (now.getMonth() + 1) +
+    "월 " +
+    now.getDate() +
+    "일";
+
+
+renderCalendar();
+
+renderAppointments();
+
+</script>
+
 {% endblock %}

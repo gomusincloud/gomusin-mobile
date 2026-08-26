@@ -1,22 +1,132 @@
+<!doctype html>
+<html lang="ko">
 
-<!doctype html><html lang="ko"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<head>
+
+<meta charset="utf-8">
+
+<meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+>
+
 <title>고무신모바일 관리시스템</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head><body>
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}"
+>
+
+</head>
+
+
+<body>
+
 {% if session.get('user_id') %}
-<div class="layout"><aside>
-<h2>고무신<span>모바일</span></h2>
-<div class="user">👤 {{ session.get('username') }}<small>{{ '관리자' if session.get('role')=='admin' else '직원' }}</small></div>
-<nav>
-<a href="{{ url_for('dashboard') }}">🏠 대시보드</a>
-<a href="{{ url_for('customers') }}">👥 고객관리</a>
-<a href="{{ url_for('bookings') }}">📅 예약관리</a>
-<a href="{{ url_for('prices') }}">💰 시세표관리</a>
-</nav><a class="logout" href="{{ url_for('logout') }}">로그아웃</a>
-</aside><main>
-{% with messages=get_flashed_messages() %}{% if messages %}{% for m in messages %}<div class="flash">{{m}}</div>{% endfor %}{% endif %}{% endwith %}
-{% block content %}{% endblock %}
-</main></div>
-{% else %}{% block login_content %}{% endblock %}{% endif %}
-</body></html>
+
+<div class="layout">
+
+    <aside>
+
+        <h2>
+            고무신<span>모바일</span>
+        </h2>
+
+
+        <!-- 현재 로그인 사용자 -->
+
+        <div class="user">
+
+            👤 {{ session.get('username') }}
+
+            <small>
+                {{ '관리자' if session.get('role')=='admin' else '직원' }}
+            </small>
+
+        </div>
+
+
+        <!-- 메뉴 -->
+
+        <nav>
+
+            <a href="{{ url_for('dashboard') }}">
+                🏠 대시보드
+            </a>
+
+            <a href="{{ url_for('customers') }}">
+                👥 고객관리
+            </a>
+
+            <a href="{{ url_for('bookings') }}">
+                📅 예약관리
+            </a>
+
+            <a href="{{ url_for('prices') }}">
+                💰 시세표관리
+            </a>
+
+
+            <!-- 관리자에게만 표시 -->
+
+            {% if session.get('role') == 'admin' %}
+
+            <a href="{{ url_for('staff') }}">
+                👤 직원관리
+            </a>
+
+            {% endif %}
+
+        </nav>
+
+
+        <!-- 로그아웃 -->
+
+        <a
+            class="logout"
+            href="{{ url_for('logout') }}"
+        >
+            로그아웃
+        </a>
+
+    </aside>
+
+
+    <main>
+
+        <!-- 알림 메시지 -->
+
+        {% with messages=get_flashed_messages() %}
+
+            {% if messages %}
+
+                {% for m in messages %}
+
+                    <div class="flash">
+                        {{m}}
+                    </div>
+
+                {% endfor %}
+
+            {% endif %}
+
+        {% endwith %}
+
+
+        {% block content %}{% endblock %}
+
+    </main>
+
+</div>
+
+
+{% else %}
+
+    {% block login_content %}{% endblock %}
+
+{% endif %}
+
+
+</body>
+
+</html>

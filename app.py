@@ -31,7 +31,6 @@ app.config["SECRET_KEY"] = os.environ.get(
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# DB 연결이 무한정 멈추지 않도록 설정
 engine_options = {
     "pool_pre_ping": True,
 }
@@ -43,8 +42,6 @@ if database_url.startswith("postgresql"):
 
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
 
-
-# HTTPS 환경에서는 true
 cookie_secure = os.environ.get(
     "COOKIE_SECURE",
     "true"
@@ -272,7 +269,6 @@ def sync_admin():
 
     else:
 
-        # 기존 계정은 admin 권한만 보장
         if user.role != "admin":
             user.role = "admin"
             db.session.commit()
@@ -318,10 +314,6 @@ def admin_required(view):
 
 # =========================================================
 # 서버 상태 확인
-#
-# 중요:
-# 이 페이지에서는 DB에 접속하지 않습니다.
-# Render 배포 확인용입니다.
 # =========================================================
 
 @app.route("/health")
@@ -340,7 +332,7 @@ def health():
 def login():
 
     try:
-        # 로그인 페이지 접속 시 DB 준비 및 관리자 생성
+
         sync_admin()
 
     except Exception as e:
@@ -413,6 +405,7 @@ def logout():
 def dashboard():
 
     try:
+
         prepare_database()
 
         today = datetime.now().date()
@@ -839,6 +832,251 @@ def price_delete(price_id):
 
     return redirect(
         url_for("prices")
+    )
+
+
+# =========================================================
+# 직원 관리
+# =========================================================
+
+@app.route(
+    "/staff",
+    methods=["GET", "POST"]
+)
+@login_required
+@admin_required
+def staff():
+
+    prepare_database()
+
+    if request.method == "POST":
+
+        username = request.form.get(
+            "username",
+            ""
+        ).strip()
+
+        password = request.form.get(
+            "password",
+            ""
+        )
+
+        password_confirm = request.form.get(
+            "password_confirm",
+            ""
+        )
+
+        # 아이디 확인
+        if not username:
+
+            flash(
+                "직원 아이디를 입력해주세요."
+            )
+
+            return redirect(
+                url_for("staff")
+            )
+
+        # 아이디 길이
+        if len(username) < 2:
+
+            flash(
+                "아이디는 2자 이상 입력해주세요."
+            )
+
+            return redirect(
+                url_for("staff")
+            )
+
+        # 비밀번호 확인
+        if len(password) < 4:
+
+            flash(
+                "비밀번호는 4자 이상 입력해주세요."
+            )
+
+            return redirect(
+                url_for("staff")
+            )
+
+        if password != password_confirm:
+
+            flash(
+                "비밀번호가 서로 다릅니다."
+            )
+
+            return redirect(
+                url_for("staff")
+            )
+
+        # 기존 아이디 확인
+        existing_user = User.query.filter_by(
+            username=username
+        ).first()
+
+        if existing_user:
+
+            flash(
+                "이미 사용 중인 아이디입니다."
+            )
+
+            return redirect(
+                url_for("staff")
+            )
+
+        # 직원 계정 생성
+        user = User(
+            username=username,
+            password_hash=generate_password_hash(password),
+            role="staff"
+        )
+
+        db.session.add(user)
+        db.session.commit()
+
+        flash(
+            f"{username} 직원 계정이 생성되었습니다."
+        )
+
+        return redirect(
+            url_for("staff")
+        )
+
+    staff_list = User.query.order_by(
+        User.created_at.asc()
+    ).all()
+
+    return render_template(
+        "staff.html",
+        users=staff_list
+    )
+
+
+# =========================================================
+# 직원 삭제
+# =========================================================
+
+@app.route(
+    "/staff/<int:user_id>/delete",
+    methods=["POST"]
+)
+@login_required
+@admin_required
+def staff_delete(user_id):
+
+    prepare_database()
+
+    user = User.query.get_or_404(
+        user_id
+    )
+
+    # 관리자 계정 삭제 방지
+    if user.role == "admin":
+
+        flash(
+            "관리자 계정은 삭제할 수 없습니다."
+        )
+
+        return redirect(
+            url_for("staff")
+        )
+
+    # 현재 로그인 계정 삭제 방지
+    if user.id == session.get("user_id"):
+
+        flash(
+            "현재 로그인한 계정은 삭제할 수 없습니다."
+        )
+
+        return redirect(
+            url_for("staff")
+        )
+
+    username = user.username
+
+    db.session.delete(user)
+    db.session.commit()
+
+    flash(
+        f"{username} 직원 계정이 삭제되었습니다."
+    )
+
+    return redirect(
+        url_for("staff")
+    )
+
+
+# =========================================================
+# 직원 비밀번호 변경
+# =========================================================
+
+@app.route(
+    "/staff/<int:user_id>/password",
+    methods=["POST"]
+)
+@login_required
+@admin_required
+def staff_password(user_id):
+
+    prepare_database()
+
+    user = User.query.get_or_404(
+        user_id
+    )
+
+    # 관리자 비밀번호는 여기서 변경하지 않음
+    if user.role == "admin":
+
+        flash(
+            "관리자 계정 비밀번호는 Render 환경변수에서 관리해주세요."
+        )
+
+        return redirect(
+            url_for("staff")
+        )
+
+    new_password = request.form.get(
+        "new_password",
+        ""
+    )
+
+    confirm_password = request.form.get(
+        "confirm_password",
+        ""
+    )
+
+    if len(new_password) < 4:
+
+        flash(
+            "비밀번호는 4자 이상 입력해주세요."
+        )
+
+        return redirect(
+            url_for("staff")
+        )
+
+    if new_password != confirm_password:
+
+        flash(
+            "비밀번호가 서로 다릅니다."
+        )
+
+        return redirect(
+            url_for("staff")
+        )
+
+    user.password_hash = generate_password_hash(
+        new_password
+    )
+
+    db.session.commit()
+
+    flash(
+        f"{user.username} 직원의 비밀번호가 변경되었습니다."
+    )
+
+    return redirect(
+        url_for("staff")
     )
 
 

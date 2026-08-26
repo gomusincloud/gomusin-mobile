@@ -399,7 +399,6 @@ def logout():
 # =========================================================
 # 메인 대시보드
 # =========================================================
-
 @app.route("/")
 @login_required
 def dashboard():
@@ -424,6 +423,42 @@ def dashboard():
             Booking.created_at.desc()
         ).limit(5).all()
 
+        # =====================================================
+        # 달력에 표시할 전체 예약 데이터
+        # =====================================================
+
+        all_bookings = Booking.query.order_by(
+            Booking.created_at.asc()
+        ).all()
+
+        calendar_bookings = []
+
+        for booking in all_bookings:
+
+            calendar_bookings.append({
+                "id": booking.id,
+                "name": booking.name,
+                "phone": booking.phone or "",
+                "visit_date": booking.visit_date or "",
+                "device": booking.device or "",
+                "memo": booking.memo or ""
+            })
+
+        # =====================================================
+        # 오늘 예약
+        # =====================================================
+
+        today_bookings = []
+
+        today_string = str(today)
+
+        for booking in all_bookings:
+
+            visit_date = booking.visit_date or ""
+
+            if visit_date[:10] == today_string:
+                today_bookings.append(booking)
+
     except Exception as e:
 
         return (
@@ -435,9 +470,11 @@ def dashboard():
         "dashboard.html",
         total=total,
         today_count=today_count,
-        recent=recent,
-        bookings=recent_bookings
+        bookings=recent_bookings,
+        today_bookings=today_bookings,
+        calendar_bookings=calendar_bookings
     )
+
 
 
 # =========================================================

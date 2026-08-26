@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: gomusin-mobile
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gomusin-db
+          property: connectionString
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
+
+databases:
+  - name: gomusin-db
+    plan: free

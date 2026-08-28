@@ -37,13 +37,23 @@ database_url = os.environ.get(
     "sqlite:///gomusin.db"
 )
 
-# Render PostgreSQL 예전 주소 호환
+# Render PostgreSQL 주소 호환
 if database_url.startswith("postgres://"):
     database_url = database_url.replace(
         "postgres://",
         "postgresql://",
         1
     )
+
+# 중요
+# psycopg2가 아니라 psycopg 3 사용
+if database_url.startswith("postgresql://"):
+    database_url = database_url.replace(
+        "postgresql://",
+        "postgresql+psycopg://",
+        1
+    )
+
 
 app.config["SECRET_KEY"] = os.environ.get(
     "SECRET_KEY",
@@ -56,12 +66,12 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 
 engine_options = {
-    "pool_pre_ping": True,
+    "pool_pre_ping": True
 }
 
 
 # PostgreSQL 연결 옵션
-if database_url.startswith("postgresql"):
+if database_url.startswith("postgresql+psycopg://"):
 
     engine_options["connect_args"] = {
         "connect_timeout": 10
@@ -88,6 +98,10 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
+
+# =========================================================
+# DB
+# =========================================================
 
 db = SQLAlchemy(app)
 
@@ -407,7 +421,9 @@ class Sale(db.Model):
 
 def prepare_database():
 
-    db.create_all()
+    with app.app_context():
+
+        db.create_all()
 
 
 # =========================================================
@@ -429,7 +445,6 @@ def sync_admin():
     )
 
     if not username or not password:
-
         return False
 
     user = User.query.filter_by(
@@ -440,7 +455,9 @@ def sync_admin():
 
         user = User(
             username=username,
-            password_hash=generate_password_hash(password),
+            password_hash=generate_password_hash(
+                password
+            ),
             role="admin"
         )
 
@@ -450,11 +467,22 @@ def sync_admin():
 
     else:
 
+        # 기존 관리자 계정도
+        # Render 환경변수 비밀번호와 동기화
+        if not check_password_hash(
+            user.password_hash,
+            password
+        ):
+
+            user.password_hash = generate_password_hash(
+                password
+            )
+
         if user.role != "admin":
 
             user.role = "admin"
 
-            db.session.commit()
+        db.session.commit()
 
     return True
 
@@ -610,12 +638,25 @@ def dashboard():
         total = Customer.query.count()
 
         # 오늘 등록 고객
-        # PostgreSQL date 타입 오류 방지를 위해
-        # Python date 객체를 사용
+        #
+        # PostgreSQL에서
+        # date(timestamp) = varchar 문제가 생기지 않도록
+        # 날짜 범위를 사용한다.
+        today_start = datetime.combine(
+            today,
+            datetime.min.time()
+        )
+
+        tomorrow_start = datetime.combine(
+            date.fromordinal(
+                today.toordinal() + 1
+            ),
+            datetime.min.time()
+        )
+
         today_count = Customer.query.filter(
-            db.func.date(
-                Customer.created_at
-            ) == today
+            Customer.created_at >= today_start,
+            Customer.created_at < tomorrow_start
         ).count()
 
         # 최근 고객
@@ -668,10 +709,7 @@ def dashboard():
                     booking
                 )
 
-        # -------------------------------------------------
         # 개통 통계
-        # -------------------------------------------------
-
         total_sales = Sale.query.count()
 
         today_sales = Sale.query.filter(
@@ -692,6 +730,8 @@ def dashboard():
         total=total,
 
         today_count=today_count,
+
+        recent=recent,
 
         bookings=recent_bookings,
 
@@ -726,14 +766,21 @@ def customers():
     if q:
 
         query = query.filter(
+
             db.or_(
+
                 Customer.name.contains(q),
+
                 Customer.phone.contains(q)
+
             )
+
         )
 
     customer_list = query.order_by(
+
         Customer.created_at.desc()
+
     ).all()
 
     return render_template(
@@ -808,7 +855,9 @@ def customer_new():
 
         )
 
-        db.session.add(customer)
+        db.session.add(
+            customer
+        )
 
         db.session.commit()
 
@@ -998,7 +1047,9 @@ def bookings():
         )
 
     booking_list = Booking.query.order_by(
+
         Booking.created_at.desc()
+
     ).all()
 
     return render_template(
@@ -1054,20 +1105,29 @@ def sale_new():
             try:
 
                 opening_date = datetime.strptime(
+
                     opening_date_text,
+
                     "%Y-%m-%d"
+
                 ).date()
 
             except ValueError:
 
-                opening_date = date.today()
+                flash(
+                    "개통일 형식이 올바르지 않습니다."
+                )
+
+                return redirect(
+                    url_for("sale_new")
+                )
 
         else:
 
             opening_date = date.today()
 
         # -------------------------------------------------
-        # 신규개통 데이터 생성
+        # 신규개통 데이터
         # -------------------------------------------------
 
         sale = Sale(
@@ -1177,9 +1237,9 @@ def sale_new():
             url_for("sales")
         )
 
-    # GET
     return render_template(
-        "sale_form.html"
+        "sale_form.html",
+        sale=None
     )
 
 
@@ -1203,6 +1263,7 @@ def sales():
     if q:
 
         query = query.filter(
+
             db.or_(
 
                 Sale.customer_name.contains(q),
@@ -1214,11 +1275,15 @@ def sales():
                 Sale.carrier.contains(q)
 
             )
+
         )
 
     sale_list = query.order_by(
+
         Sale.opening_date.desc(),
+
         Sale.created_at.desc()
+
     ).all()
 
     return render_template(
@@ -1288,10 +1353,12 @@ def sale_edit(sale_id):
             )
 
             return redirect(
+
                 url_for(
                     "sale_edit",
                     sale_id=sale_id
                 )
+
             )
 
         opening_date_text = request.form.get(
@@ -1304,8 +1371,11 @@ def sale_edit(sale_id):
             try:
 
                 sale.opening_date = datetime.strptime(
+
                     opening_date_text,
+
                     "%Y-%m-%d"
+
                 ).date()
 
             except ValueError:
@@ -1315,10 +1385,12 @@ def sale_edit(sale_id):
                 )
 
                 return redirect(
+
                     url_for(
                         "sale_edit",
                         sale_id=sale_id
                     )
+
                 )
 
         sale.customer_name = customer_name
@@ -1410,9 +1482,7 @@ def sale_edit(sale_id):
         )
 
         return redirect(
-            url_for(
-                "sales"
-            )
+            url_for("sales")
         )
 
     return render_template(
@@ -1538,7 +1608,9 @@ def prices():
         )
 
     price_list = Price.query.order_by(
+
         Price.updated_at.desc()
+
     ).all()
 
     return render_template(
@@ -1695,7 +1767,9 @@ def staff():
         )
 
     staff_list = User.query.order_by(
+
         User.created_at.asc()
+
     ).all()
 
     return render_template(
@@ -1874,10 +1948,13 @@ if __name__ == "__main__":
         host="0.0.0.0",
 
         port=int(
+
             os.environ.get(
                 "PORT",
                 "5000"
             )
+
         )
 
     )
+    

@@ -15,6 +15,8 @@ from flask import (
 
 from flask_sqlalchemy import SQLAlchemy
 
+from sqlalchemy import or_
+
 from werkzeug.security import (
     generate_password_hash,
     check_password_hash
@@ -63,20 +65,19 @@ app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-
-engine_options = {
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_pre_ping": True
 }
 
 
 if database_url.startswith("postgresql+psycopg://"):
 
-    engine_options["connect_args"] = {
-        "connect_timeout": 10
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,
+        "connect_args": {
+            "connect_timeout": 10
+        }
     }
-
-
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
 
 
 # =========================================================
@@ -399,7 +400,6 @@ class Sale(db.Model):
         db.String(50)
     )
 
-    # 기존 필드 유지
     subsidy = db.Column(
         db.String(50)
     )
@@ -417,6 +417,18 @@ class Sale(db.Model):
     )
 
     monthly_payment = db.Column(
+        db.String(50)
+    )
+
+    # =====================================================
+    # 실제 정산 / 마진
+    # =====================================================
+
+    settlement = db.Column(
+        db.String(50)
+    )
+
+    margin = db.Column(
         db.String(50)
     )
 
@@ -442,6 +454,14 @@ class Sale(db.Model):
 
     gift_status = db.Column(
         db.String(30)
+    )
+
+    # =====================================================
+    # 사후관리
+    # =====================================================
+
+    aftercare_status = db.Column(
+        db.String(50)
     )
 
     # =====================================================
@@ -497,6 +517,75 @@ class Sale(db.Model):
         onupdate=datetime.utcnow
     )
 
+    # =====================================================
+    # sales.html 호환용 별칭
+    # =====================================================
+
+    @property
+    def sale_date(self):
+        return self.opening_date
+
+    @property
+    def sale_kind(self):
+        return self.opening_type or "-"
+
+    @property
+    def signup_type(self):
+        return self.contract_type or "-"
+
+    @property
+    def seller(self):
+        return self.assigned_staff or self.created_by or "-"
+
+    @property
+    def settlement_amount(self):
+        return parse_money(self.settlement)
+
+    @property
+    def margin_amount(self):
+        return parse_money(self.margin)
+
+
+# =========================================================
+# 금액 변환 함수
+# =========================================================
+
+def parse_money(value):
+    """
+    DB에 저장된 금액이
+    100000
+    100,000
+    100000원
+    빈값
+    None
+    등 어떤 형태라도 안전하게 숫자로 변환한다.
+    """
+
+    if value is None:
+        return 0
+
+    if isinstance(value, (int, float)):
+        return int(value)
+
+    text = str(value).strip()
+
+    if not text:
+        return 0
+
+    # 콤마 제거
+    text = text.replace(",", "")
+
+    # 원 표시 제거
+    text = text.replace("원", "")
+
+    # 공백 제거
+    text = text.replace(" ", "")
+
+    try:
+        return int(float(text))
+    except (ValueError, TypeError):
+        return 0
+
 
 # =========================================================
 # 데이터베이스 준비
@@ -510,30 +599,24 @@ def prepare_database():
 
 
 # =========================================================
-# 기존 DB에 신규 Sale 컬럼 자동 추가
+# 기존 DB 자동 업그레이드
 # =========================================================
 
 def upgrade_sale_table():
-
-    """
-    기존 Render PostgreSQL의 Sale 테이블에
-    새로 추가된 컬럼이 없는 경우 자동으로 추가한다.
-
-    기존 데이터는 삭제하지 않는다.
-    """
 
     with app.app_context():
 
         try:
 
-            prepare_database()
+            db.create_all()
 
-            inspector = db.inspect(db.engine)
+            inspector = db.inspect(
+                db.engine
+            )
 
             tables = inspector.get_table_names()
 
             if "sale" not in tables:
-
                 return
 
             existing_columns = {
@@ -543,62 +626,50 @@ def upgrade_sale_table():
 
             new_columns = {
 
-                "customer_birth":
-                    "VARCHAR(20)",
+                "customer_birth": "VARCHAR(20)",
 
-                "customer_gender":
-                    "VARCHAR(10)",
+                "customer_gender": "VARCHAR(10)",
 
-                "opening_number":
-                    "VARCHAR(50)",
+                "opening_number": "VARCHAR(50)",
 
-                "manufacturer":
-                    "VARCHAR(50)",
+                "manufacturer": "VARCHAR(50)",
 
-                "imei":
-                    "VARCHAR(100)",
+                "imei": "VARCHAR(100)",
 
-                "serial_number":
-                    "VARCHAR(100)",
+                "serial_number": "VARCHAR(100)",
 
-                "selection_discount":
-                    "VARCHAR(20)",
+                "selection_discount": "VARCHAR(20)",
 
-                "official_subsidy":
-                    "VARCHAR(50)",
+                "official_subsidy": "VARCHAR(50)",
 
-                "additional_subsidy":
-                    "VARCHAR(50)",
+                "additional_subsidy": "VARCHAR(50)",
 
-                "seller_subsidy":
-                    "VARCHAR(50)",
+                "seller_subsidy": "VARCHAR(50)",
 
-                "monthly_installment":
-                    "VARCHAR(50)",
+                "monthly_installment": "VARCHAR(50)",
 
-                "additional_services":
-                    "TEXT",
+                "additional_services": "TEXT",
 
-                "service_period":
-                    "VARCHAR(50)",
+                "service_period": "VARCHAR(50)",
 
-                "gifts":
-                    "TEXT",
+                "gifts": "TEXT",
 
-                "gift_status":
-                    "VARCHAR(30)",
+                "gift_status": "VARCHAR(30)",
 
-                "old_device":
-                    "VARCHAR(100)",
+                "old_device": "VARCHAR(100)",
 
-                "old_device_return":
-                    "VARCHAR(20)",
+                "old_device_return": "VARCHAR(20)",
 
-                "trade_in_price":
-                    "VARCHAR(50)",
+                "trade_in_price": "VARCHAR(50)",
 
-                "assigned_staff":
-                    "VARCHAR(50)"
+                "assigned_staff": "VARCHAR(50)",
+
+                # 신규 조회 화면용
+                "settlement": "VARCHAR(50)",
+
+                "margin": "VARCHAR(50)",
+
+                "aftercare_status": "VARCHAR(50)"
 
             }
 
@@ -614,7 +685,6 @@ def upgrade_sale_table():
             }
 
             if not missing_columns:
-
                 return
 
             with db.engine.begin() as connection:
@@ -624,18 +694,30 @@ def upgrade_sale_table():
                     if db.engine.dialect.name == "postgresql":
 
                         connection.exec_driver_sql(
-                            f'ALTER TABLE sale ADD COLUMN IF NOT EXISTS "{column_name}" {column_type}'
+                            f'''
+                            ALTER TABLE sale
+                            ADD COLUMN IF NOT EXISTS
+                            "{column_name}"
+                            {column_type}
+                            '''
                         )
 
                     elif db.engine.dialect.name == "sqlite":
 
                         connection.exec_driver_sql(
-                            f'ALTER TABLE sale ADD COLUMN "{column_name}" {column_type}'
+                            f'''
+                            ALTER TABLE sale
+                            ADD COLUMN
+                            "{column_name}"
+                            {column_type}
+                            '''
                         )
 
             print(
                 "Sale 테이블 신규 컬럼 추가 완료:",
-                ", ".join(missing_columns.keys())
+                ", ".join(
+                    missing_columns.keys()
+                )
             )
 
         except Exception as e:
@@ -665,7 +747,6 @@ def sync_admin():
     )
 
     if not username or not password:
-
         return False
 
     user = User.query.filter_by(
@@ -686,13 +767,13 @@ def sync_admin():
 
         )
 
-        db.session.add(
-            user
-        )
+        db.session.add(user)
 
         db.session.commit()
 
     else:
+
+        changed = False
 
         if not check_password_hash(
             user.password_hash,
@@ -703,11 +784,16 @@ def sync_admin():
                 password
             )
 
+            changed = True
+
         if user.role != "admin":
 
             user.role = "admin"
 
-        db.session.commit()
+            changed = True
+
+        if changed:
+            db.session.commit()
 
     return True
 
@@ -757,15 +843,30 @@ def admin_required(view):
 
 
 # =========================================================
-# 서버 상태 확인
+# 서버 상태
 # =========================================================
 
 @app.route("/health")
 def health():
 
-    return {
-        "status": "ok"
-    }, 200
+    try:
+
+        db.session.execute(
+            db.text("SELECT 1")
+        )
+
+        return {
+            "status": "ok",
+            "database": "connected"
+        }, 200
+
+    except Exception as e:
+
+        return {
+            "status": "error",
+            "database": "error",
+            "message": str(e)
+        }, 500
 
 
 # =========================================================
@@ -979,7 +1080,7 @@ def customers():
 
         query = query.filter(
 
-            db.or_(
+            or_(
 
                 Customer.name.contains(q),
 
@@ -1067,9 +1168,7 @@ def customer_new():
 
         )
 
-        db.session.add(
-            customer
-        )
+        db.session.add(customer)
 
         db.session.commit()
 
@@ -1147,11 +1246,8 @@ def customer_edit(customer_id):
         )
 
     return render_template(
-
         "customer_form.html",
-
         customer=customer
-
     )
 
 
@@ -1173,9 +1269,7 @@ def customer_delete(customer_id):
         customer_id
     )
 
-    db.session.delete(
-        customer
-    )
+    db.session.delete(customer)
 
     db.session.commit()
 
@@ -1244,9 +1338,7 @@ def bookings():
 
         )
 
-        db.session.add(
-            booking
-        )
+        db.session.add(booking)
 
         db.session.commit()
 
@@ -1259,17 +1351,12 @@ def bookings():
         )
 
     booking_list = Booking.query.order_by(
-
         Booking.created_at.desc()
-
     ).all()
 
     return render_template(
-
         "bookings.html",
-
         bookings=booking_list
-
     )
 
 
@@ -1303,10 +1390,6 @@ def sale_new():
                 url_for("sale_new")
             )
 
-        # -------------------------------------------------
-        # 개통일
-        # -------------------------------------------------
-
         opening_date_text = request.form.get(
             "opening_date",
             ""
@@ -1335,9 +1418,9 @@ def sale_new():
 
             opening_date = date.today()
 
-        # -------------------------------------------------
+        # =================================================
         # 금액
-        # -------------------------------------------------
+        # =================================================
 
         device_price = request.form.get(
             "device_price",
@@ -1389,9 +1472,19 @@ def sale_new():
             ""
         ).replace(",", "").strip()
 
-        # -------------------------------------------------
+        settlement = request.form.get(
+            "settlement",
+            ""
+        ).replace(",", "").strip()
+
+        margin = request.form.get(
+            "margin",
+            ""
+        ).replace(",", "").strip()
+
+        # =================================================
         # Sale 생성
-        # -------------------------------------------------
+        # =================================================
 
         sale = Sale(
 
@@ -1502,6 +1595,10 @@ def sale_new():
 
             monthly_payment=monthly_payment,
 
+            settlement=settlement,
+
+            margin=margin,
+
             additional_services=request.form.get(
                 "additional_services",
                 ""
@@ -1519,6 +1616,11 @@ def sale_new():
 
             gift_status=request.form.get(
                 "gift_status",
+                ""
+            ).strip(),
+
+            aftercare_status=request.form.get(
+                "aftercare_status",
                 ""
             ).strip(),
 
@@ -1551,9 +1653,7 @@ def sale_new():
 
         )
 
-        db.session.add(
-            sale
-        )
+        db.session.add(sale)
 
         db.session.commit()
 
@@ -1565,7 +1665,6 @@ def sale_new():
             url_for("sales")
         )
 
-    # 직원 목록
     staff_list = User.query.filter_by(
         role="staff"
     ).order_by(
@@ -1586,7 +1685,7 @@ def sale_new():
 
 
 # =========================================================
-# 개통 목록
+# 개통 목록 / 개통건 조회
 # =========================================================
 
 @app.route("/sales")
@@ -1595,52 +1694,163 @@ def sales():
 
     prepare_database()
 
-    q = request.args.get(
-        "q",
-        ""
-    ).strip()
+    try:
 
-    query = Sale.query
+        q = request.args.get(
+            "q",
+            ""
+        ).strip()
 
-    if q:
+        sale_date = request.args.get(
+            "sale_date",
+            ""
+        ).strip()
 
-        query = query.filter(
+        seller = request.args.get(
+            "seller",
+            ""
+        ).strip()
 
-            db.or_(
+        query = Sale.query
 
-                Sale.customer_name.contains(q),
+        # =================================================
+        # 통합 검색
+        # =================================================
 
-                Sale.customer_phone.contains(q),
+        if q:
 
-                Sale.device.contains(q),
+            search = f"%{q}%"
 
-                Sale.carrier.contains(q),
+            query = query.filter(
 
-                Sale.imei.contains(q),
+                or_(
 
-                Sale.opening_number.contains(q)
+                    Sale.customer_name.ilike(search),
+
+                    Sale.customer_phone.ilike(search),
+
+                    Sale.device.ilike(search),
+
+                    Sale.carrier.ilike(search),
+
+                    Sale.imei.ilike(search),
+
+                    Sale.opening_number.ilike(search),
+
+                    Sale.assigned_staff.ilike(search),
+
+                    Sale.created_by.ilike(search)
+
+                )
 
             )
 
+        # =================================================
+        # 개통일 검색
+        # =================================================
+
+        if sale_date:
+
+            try:
+
+                selected_date = datetime.strptime(
+                    sale_date,
+                    "%Y-%m-%d"
+                ).date()
+
+                query = query.filter(
+                    Sale.opening_date == selected_date
+                )
+
+            except ValueError:
+
+                flash(
+                    "개통일 검색 형식이 올바르지 않습니다."
+                )
+
+        # =================================================
+        # 판매자 검색
+        # =================================================
+
+        if seller:
+
+            seller_search = f"%{seller}%"
+
+            query = query.filter(
+
+                or_(
+
+                    Sale.assigned_staff.ilike(
+                        seller_search
+                    ),
+
+                    Sale.created_by.ilike(
+                        seller_search
+                    )
+
+                )
+
+            )
+
+        # =================================================
+        # 정렬
+        # =================================================
+
+        sale_list = query.order_by(
+
+            Sale.opening_date.desc(),
+
+            Sale.created_at.desc()
+
+        ).all()
+
+        # =================================================
+        # 정산 / 마진 합계
+        # =================================================
+
+        total_settlement = 0
+
+        total_margin = 0
+
+        for sale in sale_list:
+
+            total_settlement += parse_money(
+                sale.settlement
+            )
+
+            total_margin += parse_money(
+                sale.margin
+            )
+
+        return render_template(
+
+            "sales.html",
+
+            sales=sale_list,
+
+            q=q,
+
+            sale_date=sale_date,
+
+            seller=seller,
+
+            total_settlement=total_settlement,
+
+            total_margin=total_margin
+
         )
 
-    sale_list = query.order_by(
+    except Exception as e:
 
-        Sale.opening_date.desc(),
+        app.logger.exception(
+            "개통 목록 조회 오류"
+        )
 
-        Sale.created_at.desc()
-
-    ).all()
-
-    return render_template(
-
-        "sales.html",
-
-        sales=sale_list,
-
-        q=q
-
-    )
+        return (
+            f"개통건 조회 중 오류가 발생했습니다.<br>"
+            f"<small>{str(e)}</small>",
+            500
+        )
 
 
 # =========================================================
@@ -1660,11 +1870,8 @@ def sale_detail(sale_id):
     )
 
     return render_template(
-
         "sale_detail.html",
-
         sale=sale
-
     )
 
 
@@ -1699,12 +1906,10 @@ def sale_edit(sale_id):
             )
 
             return redirect(
-
                 url_for(
                     "sale_edit",
                     sale_id=sale_id
                 )
-
             )
 
         opening_date_text = request.form.get(
@@ -1728,17 +1933,15 @@ def sale_edit(sale_id):
                 )
 
                 return redirect(
-
                     url_for(
                         "sale_edit",
                         sale_id=sale_id
                     )
-
                 )
 
-        # -------------------------------------------------
+        # =================================================
         # 고객
-        # -------------------------------------------------
+        # =================================================
 
         sale.customer_name = customer_name
 
@@ -1757,9 +1960,9 @@ def sale_edit(sale_id):
             ""
         ).strip()
 
-        # -------------------------------------------------
+        # =================================================
         # 개통
-        # -------------------------------------------------
+        # =================================================
 
         sale.carrier = request.form.get(
             "carrier",
@@ -1781,9 +1984,9 @@ def sale_edit(sale_id):
             ""
         ).strip()
 
-        # -------------------------------------------------
+        # =================================================
         # 단말기
-        # -------------------------------------------------
+        # =================================================
 
         sale.manufacturer = request.form.get(
             "manufacturer",
@@ -1815,9 +2018,9 @@ def sale_edit(sale_id):
             ""
         ).strip()
 
-        # -------------------------------------------------
+        # =================================================
         # 요금제
-        # -------------------------------------------------
+        # =================================================
 
         sale.plan = request.form.get(
             "plan",
@@ -1839,9 +2042,9 @@ def sale_edit(sale_id):
             ""
         ).strip()
 
-        # -------------------------------------------------
+        # =================================================
         # 금액
-        # -------------------------------------------------
+        # =================================================
 
         sale.device_price = request.form.get(
             "device_price",
@@ -1888,9 +2091,19 @@ def sale_edit(sale_id):
             ""
         ).replace(",", "").strip()
 
-        # -------------------------------------------------
+        sale.settlement = request.form.get(
+            "settlement",
+            ""
+        ).replace(",", "").strip()
+
+        sale.margin = request.form.get(
+            "margin",
+            ""
+        ).replace(",", "").strip()
+
+        # =================================================
         # 부가서비스
-        # -------------------------------------------------
+        # =================================================
 
         sale.additional_services = request.form.get(
             "additional_services",
@@ -1902,9 +2115,9 @@ def sale_edit(sale_id):
             ""
         ).strip()
 
-        # -------------------------------------------------
+        # =================================================
         # 사은품
-        # -------------------------------------------------
+        # =================================================
 
         sale.gifts = request.form.get(
             "gifts",
@@ -1916,9 +2129,18 @@ def sale_edit(sale_id):
             ""
         ).strip()
 
-        # -------------------------------------------------
+        # =================================================
+        # 사후관리
+        # =================================================
+
+        sale.aftercare_status = request.form.get(
+            "aftercare_status",
+            ""
+        ).strip()
+
+        # =================================================
         # 기존폰
-        # -------------------------------------------------
+        # =================================================
 
         sale.old_device = request.form.get(
             "old_device",
@@ -1935,18 +2157,18 @@ def sale_edit(sale_id):
             ""
         ).replace(",", "").strip()
 
-        # -------------------------------------------------
+        # =================================================
         # 담당직원
-        # -------------------------------------------------
+        # =================================================
 
         sale.assigned_staff = request.form.get(
             "assigned_staff",
             ""
         ).strip()
 
-        # -------------------------------------------------
+        # =================================================
         # 메모
-        # -------------------------------------------------
+        # =================================================
 
         sale.memo = request.form.get(
             "memo",
@@ -2000,9 +2222,7 @@ def sale_delete(sale_id):
         sale_id
     )
 
-    db.session.delete(
-        sale
-    )
+    db.session.delete(sale)
 
     db.session.commit()
 
@@ -2081,9 +2301,7 @@ def prices():
 
         )
 
-        db.session.add(
-            item
-        )
+        db.session.add(item)
 
         db.session.commit()
 
@@ -2096,17 +2314,12 @@ def prices():
         )
 
     price_list = Price.query.order_by(
-
         Price.updated_at.desc()
-
     ).all()
 
     return render_template(
-
         "prices.html",
-
         prices=price_list
-
     )
 
 
@@ -2128,9 +2341,7 @@ def price_delete(price_id):
         price_id
     )
 
-    db.session.delete(
-        item
-    )
+    db.session.delete(item)
 
     db.session.commit()
 
@@ -2240,9 +2451,7 @@ def staff():
 
         )
 
-        db.session.add(
-            user
-        )
+        db.session.add(user)
 
         db.session.commit()
 
@@ -2255,17 +2464,12 @@ def staff():
         )
 
     staff_list = User.query.order_by(
-
         User.created_at.asc()
-
     ).all()
 
     return render_template(
-
         "staff.html",
-
         users=staff_list
-
     )
 
 
@@ -2311,9 +2515,7 @@ def staff_delete(user_id):
 
     username = user.username
 
-    db.session.delete(
-        user
-    )
+    db.session.delete(user)
 
     db.session.commit()
 
@@ -2400,7 +2602,7 @@ def staff_password(user_id):
 
 
 # =========================================================
-# 403 오류
+# 403
 # =========================================================
 
 @app.errorhandler(403)
@@ -2413,7 +2615,7 @@ def forbidden(error):
 
 
 # =========================================================
-# 404 오류
+# 404
 # =========================================================
 
 @app.errorhandler(404)
@@ -2422,6 +2624,39 @@ def not_found(error):
     return (
         "페이지를 찾을 수 없습니다.",
         404
+    )
+
+
+# =========================================================
+# 500
+# =========================================================
+
+@app.errorhandler(500)
+def internal_error(error):
+
+    db.session.rollback()
+
+    app.logger.exception(
+        "500 Internal Server Error"
+    )
+
+    return (
+        """
+        <div style="
+            font-family:Arial;
+            padding:40px;
+            text-align:center;
+        ">
+            <h1>서버 오류가 발생했습니다.</h1>
+            <p>
+                잠시 후 다시 시도해주세요.
+            </p>
+            <p>
+                문제가 계속되면 관리자에게 문의해주세요.
+            </p>
+        </div>
+        """,
+        500
     )
 
 
@@ -2456,12 +2691,10 @@ if __name__ == "__main__":
         host="0.0.0.0",
 
         port=int(
-
             os.environ.get(
                 "PORT",
                 "5000"
             )
-
         )
 
     )

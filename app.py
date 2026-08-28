@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, date
 from functools import wraps
 
 from flask import (
@@ -14,6 +14,7 @@ from flask import (
 )
 
 from flask_sqlalchemy import SQLAlchemy
+
 from werkzeug.security import (
     generate_password_hash,
     check_password_hash
@@ -28,58 +29,39 @@ app = Flask(__name__)
 
 
 # =========================================================
-# DATABASE 설정
+# 데이터베이스 설정
 # =========================================================
 
 database_url = os.environ.get(
     "DATABASE_URL",
     "sqlite:///gomusin.db"
-).strip()
+)
 
-
-# Render PostgreSQL URL 호환
+# Render PostgreSQL 예전 주소 호환
 if database_url.startswith("postgres://"):
-
     database_url = database_url.replace(
         "postgres://",
         "postgresql://",
         1
     )
 
-
-# PostgreSQL은 psycopg 드라이버를 명시적으로 사용
-if database_url.startswith("postgresql://"):
-
-    database_url = database_url.replace(
-        "postgresql://",
-        "postgresql+psycopg://",
-        1
-    )
-
-
-# =========================================================
-# Flask 보안 설정
-# =========================================================
-
 app.config["SECRET_KEY"] = os.environ.get(
     "SECRET_KEY",
     "CHANGE_THIS_SECRET_KEY"
 )
 
-
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 
 engine_options = {
-    "pool_pre_ping": True
+    "pool_pre_ping": True,
 }
 
 
 # PostgreSQL 연결 옵션
-if database_url.startswith("postgresql+psycopg://"):
+if database_url.startswith("postgresql"):
 
     engine_options["connect_args"] = {
         "connect_timeout": 10
@@ -98,21 +80,14 @@ cookie_secure = os.environ.get(
     "true"
 ).lower()
 
-
 app.config["SESSION_COOKIE_SECURE"] = (
     cookie_secure == "true"
 )
 
-
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-
 
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-
-# =========================================================
-# SQLAlchemy
-# =========================================================
 
 db = SQLAlchemy(app)
 
@@ -285,6 +260,148 @@ class Price(db.Model):
 
 
 # =========================================================
+# 신규개통 모델
+# =========================================================
+
+class Sale(db.Model):
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True
+    )
+
+    # -----------------------------------------------------
+    # 고객 정보
+    # -----------------------------------------------------
+
+    customer_name = db.Column(
+        db.String(100),
+        nullable=False
+    )
+
+    customer_phone = db.Column(
+        db.String(30)
+    )
+
+    # -----------------------------------------------------
+    # 개통 정보
+    # -----------------------------------------------------
+
+    opening_date = db.Column(
+        db.Date,
+        nullable=False,
+        default=date.today
+    )
+
+    carrier = db.Column(
+        db.String(30)
+    )
+
+    opening_type = db.Column(
+        db.String(30)
+    )
+
+    # -----------------------------------------------------
+    # 단말기 정보
+    # -----------------------------------------------------
+
+    device = db.Column(
+        db.String(100)
+    )
+
+    color = db.Column(
+        db.String(50)
+    )
+
+    storage = db.Column(
+        db.String(50)
+    )
+
+    # -----------------------------------------------------
+    # 요금제
+    # -----------------------------------------------------
+
+    plan = db.Column(
+        db.String(100)
+    )
+
+    # -----------------------------------------------------
+    # 계약 정보
+    # -----------------------------------------------------
+
+    contract_type = db.Column(
+        db.String(50)
+    )
+
+    installment_months = db.Column(
+        db.String(20)
+    )
+
+    # -----------------------------------------------------
+    # 금액 정보
+    # -----------------------------------------------------
+
+    device_price = db.Column(
+        db.String(50)
+    )
+
+    subsidy = db.Column(
+        db.String(50)
+    )
+
+    installment_price = db.Column(
+        db.String(50)
+    )
+
+    cash_price = db.Column(
+        db.String(50)
+    )
+
+    monthly_payment = db.Column(
+        db.String(50)
+    )
+
+    # -----------------------------------------------------
+    # 개통 상태
+    # -----------------------------------------------------
+
+    status = db.Column(
+        db.String(30),
+        nullable=False,
+        default="개통완료"
+    )
+
+    # -----------------------------------------------------
+    # 메모
+    # -----------------------------------------------------
+
+    memo = db.Column(
+        db.Text
+    )
+
+    # -----------------------------------------------------
+    # 등록 직원
+    # -----------------------------------------------------
+
+    created_by = db.Column(
+        db.String(50)
+    )
+
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow
+    )
+
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+
+# =========================================================
 # 데이터베이스 준비
 # =========================================================
 
@@ -311,18 +428,14 @@ def sync_admin():
         ""
     )
 
-    # Render 환경변수가 없으면 아무것도 하지 않음
     if not username or not password:
 
         return False
-
 
     user = User.query.filter_by(
         username=username
     ).first()
 
-
-    # 관리자 계정이 없으면 생성
     if user is None:
 
         user = User(
@@ -337,34 +450,11 @@ def sync_admin():
 
     else:
 
-        # 해당 계정은 항상 관리자 권한 유지
-        changed = False
-
         if user.role != "admin":
 
             user.role = "admin"
 
-            changed = True
-
-
-        # 환경변수 비밀번호와 기존 비밀번호가 다르면
-        # 관리자 비밀번호도 자동으로 갱신
-        if not check_password_hash(
-            user.password_hash,
-            password
-        ):
-
-            user.password_hash = generate_password_hash(
-                password
-            )
-
-            changed = True
-
-
-        if changed:
-
             db.session.commit()
-
 
     return True
 
@@ -384,7 +474,10 @@ def login_required(view):
                 url_for("login")
             )
 
-        return view(*args, **kwargs)
+        return view(
+            *args,
+            **kwargs
+        )
 
     return wrapped
 
@@ -402,7 +495,10 @@ def admin_required(view):
 
             abort(403)
 
-        return view(*args, **kwargs)
+        return view(
+            *args,
+            **kwargs
+        )
 
     return wrapped
 
@@ -440,7 +536,6 @@ def login():
             500
         )
 
-
     if request.method == "POST":
 
         username = request.form.get(
@@ -453,11 +548,9 @@ def login():
             ""
         )
 
-
         user = User.query.filter_by(
             username=username
         ).first()
-
 
         if user and check_password_hash(
             user.password_hash,
@@ -472,16 +565,13 @@ def login():
 
             session["role"] = user.role
 
-
             return redirect(
                 url_for("dashboard")
             )
 
-
         flash(
             "아이디 또는 비밀번호가 올바르지 않습니다."
         )
-
 
     return render_template(
         "login.html"
@@ -503,7 +593,7 @@ def logout():
 
 
 # =========================================================
-# 메인 대시보드
+# 대시보드
 # =========================================================
 
 @app.route("/")
@@ -514,78 +604,36 @@ def dashboard():
 
         prepare_database()
 
+        today = date.today()
 
-        # -------------------------------------------------
-        # 오늘 날짜
-        # -------------------------------------------------
-
-        today = datetime.now().date()
-
-
-        # -------------------------------------------------
-        # 오늘 시작 / 내일 시작
-        #
-        # PostgreSQL의 date = varchar 오류를 피하기 위해
-        # 문자열 비교 대신 datetime 범위로 조회
-        # -------------------------------------------------
-
-        today_start = datetime.combine(
-            today,
-            datetime.min.time()
-        )
-
-
-        tomorrow_start = today_start + timedelta(
-            days=1
-        )
-
-
-        # -------------------------------------------------
         # 전체 고객
-        # -------------------------------------------------
-
         total = Customer.query.count()
 
-
-        # -------------------------------------------------
-        # 오늘 등록된 고객
-        # -------------------------------------------------
-
+        # 오늘 등록 고객
+        # PostgreSQL date 타입 오류 방지를 위해
+        # Python date 객체를 사용
         today_count = Customer.query.filter(
-            Customer.created_at >= today_start,
-            Customer.created_at < tomorrow_start
+            db.func.date(
+                Customer.created_at
+            ) == today
         ).count()
 
-
-        # -------------------------------------------------
         # 최근 고객
-        # -------------------------------------------------
-
         recent = Customer.query.order_by(
             Customer.created_at.desc()
         ).limit(8).all()
 
-
-        # -------------------------------------------------
         # 최근 예약
-        # -------------------------------------------------
-
         recent_bookings = Booking.query.order_by(
             Booking.created_at.desc()
         ).limit(5).all()
 
-
-        # -------------------------------------------------
-        # 달력 전체 예약
-        # -------------------------------------------------
-
+        # 전체 예약
         all_bookings = Booking.query.order_by(
             Booking.created_at.asc()
         ).all()
 
-
         calendar_bookings = []
-
 
         for booking in all_bookings:
 
@@ -605,21 +653,14 @@ def dashboard():
 
             })
 
-
-        # -------------------------------------------------
         # 오늘 예약
-        # -------------------------------------------------
-
         today_bookings = []
 
-
         today_string = str(today)
-
 
         for booking in all_bookings:
 
             visit_date = booking.visit_date or ""
-
 
             if visit_date[:10] == today_string:
 
@@ -627,6 +668,15 @@ def dashboard():
                     booking
                 )
 
+        # -------------------------------------------------
+        # 개통 통계
+        # -------------------------------------------------
+
+        total_sales = Sale.query.count()
+
+        today_sales = Sale.query.filter(
+            Sale.opening_date == today
+        ).count()
 
     except Exception as e:
 
@@ -634,7 +684,6 @@ def dashboard():
             f"데이터베이스 오류: {str(e)}",
             500
         )
-
 
     return render_template(
 
@@ -644,13 +693,15 @@ def dashboard():
 
         today_count=today_count,
 
-        recent=recent,
-
         bookings=recent_bookings,
 
         today_bookings=today_bookings,
 
-        calendar_bookings=calendar_bookings
+        calendar_bookings=calendar_bookings,
+
+        total_sales=total_sales,
+
+        today_sales=today_sales
 
     )
 
@@ -665,35 +716,25 @@ def customers():
 
     prepare_database()
 
-
     q = request.args.get(
         "q",
         ""
     ).strip()
 
-
     query = Customer.query
-
 
     if q:
 
         query = query.filter(
-
             db.or_(
-
                 Customer.name.contains(q),
-
                 Customer.phone.contains(q)
-
             )
-
         )
-
 
     customer_list = query.order_by(
         Customer.created_at.desc()
     ).all()
-
 
     return render_template(
 
@@ -719,14 +760,12 @@ def customer_new():
 
     prepare_database()
 
-
     if request.method == "POST":
 
         name = request.form.get(
             "name",
             ""
         ).strip()
-
 
         if not name:
 
@@ -737,7 +776,6 @@ def customer_new():
             return redirect(
                 url_for("customer_new")
             )
-
 
         customer = Customer(
 
@@ -770,21 +808,17 @@ def customer_new():
 
         )
 
-
         db.session.add(customer)
 
         db.session.commit()
-
 
         flash(
             "고객이 등록되었습니다."
         )
 
-
         return redirect(
             url_for("customers")
         )
-
 
     return render_template(
         "customer_form.html",
@@ -805,11 +839,9 @@ def customer_edit(customer_id):
 
     prepare_database()
 
-
     customer = Customer.query.get_or_404(
         customer_id
     )
-
 
     if request.method == "POST":
 
@@ -818,49 +850,40 @@ def customer_edit(customer_id):
             ""
         ).strip()
 
-
         customer.phone = request.form.get(
             "phone",
             ""
         ).strip()
-
 
         customer.device = request.form.get(
             "device",
             ""
         ).strip()
 
-
         customer.carrier = request.form.get(
             "carrier",
             ""
         ).strip()
-
 
         customer.status = request.form.get(
             "status",
             "상담중"
         ).strip()
 
-
         customer.memo = request.form.get(
             "memo",
             ""
         ).strip()
 
-
         db.session.commit()
-
 
         flash(
             "고객 정보가 수정되었습니다."
         )
 
-
         return redirect(
             url_for("customers")
         )
-
 
     return render_template(
 
@@ -885,21 +908,19 @@ def customer_delete(customer_id):
 
     prepare_database()
 
-
     customer = Customer.query.get_or_404(
         customer_id
     )
 
-
-    db.session.delete(customer)
+    db.session.delete(
+        customer
+    )
 
     db.session.commit()
-
 
     flash(
         "고객 정보가 삭제되었습니다."
     )
-
 
     return redirect(
         url_for("customers")
@@ -919,14 +940,12 @@ def bookings():
 
     prepare_database()
 
-
     if request.method == "POST":
 
         name = request.form.get(
             "name",
             ""
         ).strip()
-
 
         if not name:
 
@@ -937,7 +956,6 @@ def bookings():
             return redirect(
                 url_for("bookings")
             )
-
 
         booking = Booking(
 
@@ -965,26 +983,23 @@ def bookings():
 
         )
 
-
-        db.session.add(booking)
+        db.session.add(
+            booking
+        )
 
         db.session.commit()
-
 
         flash(
             "예약이 등록되었습니다."
         )
 
-
         return redirect(
             url_for("bookings")
         )
 
-
     booking_list = Booking.query.order_by(
         Booking.created_at.desc()
     ).all()
-
 
     return render_template(
 
@@ -992,6 +1007,453 @@ def bookings():
 
         bookings=booking_list
 
+    )
+
+
+# =========================================================
+# 신규개통 등록
+# =========================================================
+
+@app.route(
+    "/sales/new",
+    methods=["GET", "POST"]
+)
+@login_required
+def sale_new():
+
+    prepare_database()
+
+    if request.method == "POST":
+
+        customer_name = request.form.get(
+            "customer_name",
+            ""
+        ).strip()
+
+        if not customer_name:
+
+            flash(
+                "고객명을 입력해주세요."
+            )
+
+            return redirect(
+                url_for("sale_new")
+            )
+
+        # -------------------------------------------------
+        # 개통일
+        # -------------------------------------------------
+
+        opening_date_text = request.form.get(
+            "opening_date",
+            ""
+        ).strip()
+
+        if opening_date_text:
+
+            try:
+
+                opening_date = datetime.strptime(
+                    opening_date_text,
+                    "%Y-%m-%d"
+                ).date()
+
+            except ValueError:
+
+                opening_date = date.today()
+
+        else:
+
+            opening_date = date.today()
+
+        # -------------------------------------------------
+        # 신규개통 데이터 생성
+        # -------------------------------------------------
+
+        sale = Sale(
+
+            customer_name=customer_name,
+
+            customer_phone=request.form.get(
+                "customer_phone",
+                ""
+            ).strip(),
+
+            opening_date=opening_date,
+
+            carrier=request.form.get(
+                "carrier",
+                ""
+            ).strip(),
+
+            opening_type=request.form.get(
+                "opening_type",
+                ""
+            ).strip(),
+
+            device=request.form.get(
+                "device",
+                ""
+            ).strip(),
+
+            color=request.form.get(
+                "color",
+                ""
+            ).strip(),
+
+            storage=request.form.get(
+                "storage",
+                ""
+            ).strip(),
+
+            plan=request.form.get(
+                "plan",
+                ""
+            ).strip(),
+
+            contract_type=request.form.get(
+                "contract_type",
+                ""
+            ).strip(),
+
+            installment_months=request.form.get(
+                "installment_months",
+                ""
+            ).strip(),
+
+            device_price=request.form.get(
+                "device_price",
+                ""
+            ).strip(),
+
+            subsidy=request.form.get(
+                "subsidy",
+                ""
+            ).strip(),
+
+            installment_price=request.form.get(
+                "installment_price",
+                ""
+            ).strip(),
+
+            cash_price=request.form.get(
+                "cash_price",
+                ""
+            ).strip(),
+
+            monthly_payment=request.form.get(
+                "monthly_payment",
+                ""
+            ).strip(),
+
+            status=request.form.get(
+                "status",
+                "개통완료"
+            ).strip(),
+
+            memo=request.form.get(
+                "memo",
+                ""
+            ).strip(),
+
+            created_by=session.get(
+                "username",
+                ""
+            )
+
+        )
+
+        db.session.add(
+            sale
+        )
+
+        db.session.commit()
+
+        flash(
+            "신규개통 정보가 등록되었습니다."
+        )
+
+        return redirect(
+            url_for("sales")
+        )
+
+    # GET
+    return render_template(
+        "sale_form.html"
+    )
+
+
+# =========================================================
+# 개통 목록
+# =========================================================
+
+@app.route("/sales")
+@login_required
+def sales():
+
+    prepare_database()
+
+    q = request.args.get(
+        "q",
+        ""
+    ).strip()
+
+    query = Sale.query
+
+    if q:
+
+        query = query.filter(
+            db.or_(
+
+                Sale.customer_name.contains(q),
+
+                Sale.customer_phone.contains(q),
+
+                Sale.device.contains(q),
+
+                Sale.carrier.contains(q)
+
+            )
+        )
+
+    sale_list = query.order_by(
+        Sale.opening_date.desc(),
+        Sale.created_at.desc()
+    ).all()
+
+    return render_template(
+
+        "sales.html",
+
+        sales=sale_list,
+
+        q=q
+
+    )
+
+
+# =========================================================
+# 개통 상세
+# =========================================================
+
+@app.route(
+    "/sales/<int:sale_id>"
+)
+@login_required
+def sale_detail(sale_id):
+
+    prepare_database()
+
+    sale = Sale.query.get_or_404(
+        sale_id
+    )
+
+    return render_template(
+
+        "sale_detail.html",
+
+        sale=sale
+
+    )
+
+
+# =========================================================
+# 개통 수정
+# =========================================================
+
+@app.route(
+    "/sales/<int:sale_id>/edit",
+    methods=["GET", "POST"]
+)
+@login_required
+def sale_edit(sale_id):
+
+    prepare_database()
+
+    sale = Sale.query.get_or_404(
+        sale_id
+    )
+
+    if request.method == "POST":
+
+        customer_name = request.form.get(
+            "customer_name",
+            ""
+        ).strip()
+
+        if not customer_name:
+
+            flash(
+                "고객명을 입력해주세요."
+            )
+
+            return redirect(
+                url_for(
+                    "sale_edit",
+                    sale_id=sale_id
+                )
+            )
+
+        opening_date_text = request.form.get(
+            "opening_date",
+            ""
+        ).strip()
+
+        if opening_date_text:
+
+            try:
+
+                sale.opening_date = datetime.strptime(
+                    opening_date_text,
+                    "%Y-%m-%d"
+                ).date()
+
+            except ValueError:
+
+                flash(
+                    "개통일 형식이 올바르지 않습니다."
+                )
+
+                return redirect(
+                    url_for(
+                        "sale_edit",
+                        sale_id=sale_id
+                    )
+                )
+
+        sale.customer_name = customer_name
+
+        sale.customer_phone = request.form.get(
+            "customer_phone",
+            ""
+        ).strip()
+
+        sale.carrier = request.form.get(
+            "carrier",
+            ""
+        ).strip()
+
+        sale.opening_type = request.form.get(
+            "opening_type",
+            ""
+        ).strip()
+
+        sale.device = request.form.get(
+            "device",
+            ""
+        ).strip()
+
+        sale.color = request.form.get(
+            "color",
+            ""
+        ).strip()
+
+        sale.storage = request.form.get(
+            "storage",
+            ""
+        ).strip()
+
+        sale.plan = request.form.get(
+            "plan",
+            ""
+        ).strip()
+
+        sale.contract_type = request.form.get(
+            "contract_type",
+            ""
+        ).strip()
+
+        sale.installment_months = request.form.get(
+            "installment_months",
+            ""
+        ).strip()
+
+        sale.device_price = request.form.get(
+            "device_price",
+            ""
+        ).strip()
+
+        sale.subsidy = request.form.get(
+            "subsidy",
+            ""
+        ).strip()
+
+        sale.installment_price = request.form.get(
+            "installment_price",
+            ""
+        ).strip()
+
+        sale.cash_price = request.form.get(
+            "cash_price",
+            ""
+        ).strip()
+
+        sale.monthly_payment = request.form.get(
+            "monthly_payment",
+            ""
+        ).strip()
+
+        sale.status = request.form.get(
+            "status",
+            "개통완료"
+        ).strip()
+
+        sale.memo = request.form.get(
+            "memo",
+            ""
+        ).strip()
+
+        db.session.commit()
+
+        flash(
+            "개통 정보가 수정되었습니다."
+        )
+
+        return redirect(
+            url_for(
+                "sales"
+            )
+        )
+
+    return render_template(
+
+        "sale_form.html",
+
+        sale=sale
+
+    )
+
+
+# =========================================================
+# 개통 삭제
+# =========================================================
+
+@app.route(
+    "/sales/<int:sale_id>/delete",
+    methods=["POST"]
+)
+@login_required
+@admin_required
+def sale_delete(sale_id):
+
+    prepare_database()
+
+    sale = Sale.query.get_or_404(
+        sale_id
+    )
+
+    db.session.delete(
+        sale
+    )
+
+    db.session.commit()
+
+    flash(
+        "개통 정보가 삭제되었습니다."
+    )
+
+    return redirect(
+        url_for("sales")
     )
 
 
@@ -1008,37 +1470,31 @@ def prices():
 
     prepare_database()
 
-
     if request.method == "POST":
 
         if session.get("role") != "admin":
 
             abort(403)
 
-
         device = request.form.get(
             "device",
             ""
         ).strip()
-
 
         carrier = request.form.get(
             "carrier",
             ""
         ).strip()
 
-
         sale_type = request.form.get(
             "sale_type",
             ""
         ).strip()
 
-
         price = request.form.get(
             "price",
             ""
         ).strip()
-
 
         if (
             not device
@@ -1055,7 +1511,6 @@ def prices():
                 url_for("prices")
             )
 
-
         item = Price(
 
             device=device,
@@ -1068,26 +1523,23 @@ def prices():
 
         )
 
-
-        db.session.add(item)
+        db.session.add(
+            item
+        )
 
         db.session.commit()
-
 
         flash(
             "시세가 등록되었습니다."
         )
 
-
         return redirect(
             url_for("prices")
         )
 
-
     price_list = Price.query.order_by(
         Price.updated_at.desc()
     ).all()
-
 
     return render_template(
 
@@ -1112,21 +1564,19 @@ def price_delete(price_id):
 
     prepare_database()
 
-
     item = Price.query.get_or_404(
         price_id
     )
 
-
-    db.session.delete(item)
+    db.session.delete(
+        item
+    )
 
     db.session.commit()
-
 
     flash(
         "시세가 삭제되었습니다."
     )
-
 
     return redirect(
         url_for("prices")
@@ -1147,7 +1597,6 @@ def staff():
 
     prepare_database()
 
-
     if request.method == "POST":
 
         username = request.form.get(
@@ -1155,22 +1604,15 @@ def staff():
             ""
         ).strip()
 
-
         password = request.form.get(
             "password",
             ""
         )
 
-
         password_confirm = request.form.get(
             "password_confirm",
             ""
         )
-
-
-        # -------------------------------------------------
-        # 아이디 확인
-        # -------------------------------------------------
 
         if not username:
 
@@ -1182,7 +1624,6 @@ def staff():
                 url_for("staff")
             )
 
-
         if len(username) < 2:
 
             flash(
@@ -1192,11 +1633,6 @@ def staff():
             return redirect(
                 url_for("staff")
             )
-
-
-        # -------------------------------------------------
-        # 비밀번호 확인
-        # -------------------------------------------------
 
         if len(password) < 4:
 
@@ -1208,7 +1644,6 @@ def staff():
                 url_for("staff")
             )
 
-
         if password != password_confirm:
 
             flash(
@@ -1219,15 +1654,9 @@ def staff():
                 url_for("staff")
             )
 
-
-        # -------------------------------------------------
-        # 기존 아이디 확인
-        # -------------------------------------------------
-
         existing_user = User.query.filter_by(
             username=username
         ).first()
-
 
         if existing_user:
 
@@ -1238,11 +1667,6 @@ def staff():
             return redirect(
                 url_for("staff")
             )
-
-
-        # -------------------------------------------------
-        # 직원 계정 생성
-        # -------------------------------------------------
 
         user = User(
 
@@ -1256,26 +1680,23 @@ def staff():
 
         )
 
-
-        db.session.add(user)
+        db.session.add(
+            user
+        )
 
         db.session.commit()
-
 
         flash(
             f"{username} 직원 계정이 생성되었습니다."
         )
 
-
         return redirect(
             url_for("staff")
         )
 
-
     staff_list = User.query.order_by(
         User.created_at.asc()
     ).all()
-
 
     return render_template(
 
@@ -1300,13 +1721,10 @@ def staff_delete(user_id):
 
     prepare_database()
 
-
     user = User.query.get_or_404(
         user_id
     )
 
-
-    # 관리자 계정 삭제 방지
     if user.role == "admin":
 
         flash(
@@ -1317,9 +1735,9 @@ def staff_delete(user_id):
             url_for("staff")
         )
 
-
-    # 현재 로그인 계정 삭제 방지
-    if user.id == session.get("user_id"):
+    if user.id == session.get(
+        "user_id"
+    ):
 
         flash(
             "현재 로그인한 계정은 삭제할 수 없습니다."
@@ -1329,19 +1747,17 @@ def staff_delete(user_id):
             url_for("staff")
         )
 
-
     username = user.username
 
-
-    db.session.delete(user)
+    db.session.delete(
+        user
+    )
 
     db.session.commit()
-
 
     flash(
         f"{username} 직원 계정이 삭제되었습니다."
     )
-
 
     return redirect(
         url_for("staff")
@@ -1362,13 +1778,10 @@ def staff_password(user_id):
 
     prepare_database()
 
-
     user = User.query.get_or_404(
         user_id
     )
 
-
-    # 관리자 비밀번호는 Render 환경변수에서 관리
     if user.role == "admin":
 
         flash(
@@ -1379,18 +1792,15 @@ def staff_password(user_id):
             url_for("staff")
         )
 
-
     new_password = request.form.get(
         "new_password",
         ""
     )
 
-
     confirm_password = request.form.get(
         "confirm_password",
         ""
     )
-
 
     if len(new_password) < 4:
 
@@ -1402,7 +1812,6 @@ def staff_password(user_id):
             url_for("staff")
         )
 
-
     if new_password != confirm_password:
 
         flash(
@@ -1413,19 +1822,15 @@ def staff_password(user_id):
             url_for("staff")
         )
 
-
     user.password_hash = generate_password_hash(
         new_password
     )
 
-
     db.session.commit()
-
 
     flash(
         f"{user.username} 직원의 비밀번호가 변경되었습니다."
     )
-
 
     return redirect(
         url_for("staff")

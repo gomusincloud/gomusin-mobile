@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from functools import wraps
 
 from flask import (
@@ -45,8 +45,7 @@ if database_url.startswith("postgres://"):
         1
     )
 
-# 중요
-# psycopg2가 아니라 psycopg 3 사용
+# psycopg 3 사용
 if database_url.startswith("postgresql://"):
     database_url = database_url.replace(
         "postgresql://",
@@ -70,7 +69,6 @@ engine_options = {
 }
 
 
-# PostgreSQL 연결 옵션
 if database_url.startswith("postgresql+psycopg://"):
 
     engine_options["connect_args"] = {
@@ -274,7 +272,7 @@ class Price(db.Model):
 
 
 # =========================================================
-# 신규개통 모델
+# 신규개통 / 판매 모델
 # =========================================================
 
 class Sale(db.Model):
@@ -284,9 +282,9 @@ class Sale(db.Model):
         primary_key=True
     )
 
-    # -----------------------------------------------------
-    # 고객 정보
-    # -----------------------------------------------------
+    # =====================================================
+    # 고객 기본정보
+    # =====================================================
 
     customer_name = db.Column(
         db.String(100),
@@ -297,9 +295,17 @@ class Sale(db.Model):
         db.String(30)
     )
 
-    # -----------------------------------------------------
-    # 개통 정보
-    # -----------------------------------------------------
+    customer_birth = db.Column(
+        db.String(20)
+    )
+
+    customer_gender = db.Column(
+        db.String(10)
+    )
+
+    # =====================================================
+    # 개통 기본정보
+    # =====================================================
 
     opening_date = db.Column(
         db.Date,
@@ -315,9 +321,23 @@ class Sale(db.Model):
         db.String(30)
     )
 
-    # -----------------------------------------------------
+    status = db.Column(
+        db.String(30),
+        nullable=False,
+        default="개통완료"
+    )
+
+    opening_number = db.Column(
+        db.String(50)
+    )
+
+    # =====================================================
     # 단말기 정보
-    # -----------------------------------------------------
+    # =====================================================
+
+    manufacturer = db.Column(
+        db.String(50)
+    )
 
     device = db.Column(
         db.String(100)
@@ -331,17 +351,21 @@ class Sale(db.Model):
         db.String(50)
     )
 
-    # -----------------------------------------------------
-    # 요금제
-    # -----------------------------------------------------
+    imei = db.Column(
+        db.String(100)
+    )
+
+    serial_number = db.Column(
+        db.String(100)
+    )
+
+    # =====================================================
+    # 요금제 / 계약정보
+    # =====================================================
 
     plan = db.Column(
         db.String(100)
     )
-
-    # -----------------------------------------------------
-    # 계약 정보
-    # -----------------------------------------------------
 
     contract_type = db.Column(
         db.String(50)
@@ -351,14 +375,31 @@ class Sale(db.Model):
         db.String(20)
     )
 
-    # -----------------------------------------------------
-    # 금액 정보
-    # -----------------------------------------------------
+    selection_discount = db.Column(
+        db.String(20)
+    )
+
+    # =====================================================
+    # 금액정보
+    # =====================================================
 
     device_price = db.Column(
         db.String(50)
     )
 
+    official_subsidy = db.Column(
+        db.String(50)
+    )
+
+    additional_subsidy = db.Column(
+        db.String(50)
+    )
+
+    seller_subsidy = db.Column(
+        db.String(50)
+    )
+
+    # 기존 필드 유지
     subsidy = db.Column(
         db.String(50)
     )
@@ -371,35 +412,77 @@ class Sale(db.Model):
         db.String(50)
     )
 
+    monthly_installment = db.Column(
+        db.String(50)
+    )
+
     monthly_payment = db.Column(
         db.String(50)
     )
 
-    # -----------------------------------------------------
-    # 개통 상태
-    # -----------------------------------------------------
+    # =====================================================
+    # 부가서비스
+    # =====================================================
 
-    status = db.Column(
-        db.String(30),
-        nullable=False,
-        default="개통완료"
+    additional_services = db.Column(
+        db.Text
     )
 
-    # -----------------------------------------------------
+    service_period = db.Column(
+        db.String(50)
+    )
+
+    # =====================================================
+    # 사은품
+    # =====================================================
+
+    gifts = db.Column(
+        db.Text
+    )
+
+    gift_status = db.Column(
+        db.String(30)
+    )
+
+    # =====================================================
+    # 기존 단말기 / 중고폰
+    # =====================================================
+
+    old_device = db.Column(
+        db.String(100)
+    )
+
+    old_device_return = db.Column(
+        db.String(20)
+    )
+
+    trade_in_price = db.Column(
+        db.String(50)
+    )
+
+    # =====================================================
+    # 직원 / 관리정보
+    # =====================================================
+
+    assigned_staff = db.Column(
+        db.String(50)
+    )
+
+    created_by = db.Column(
+        db.String(50)
+    )
+
+    # =====================================================
     # 메모
-    # -----------------------------------------------------
+    # =====================================================
 
     memo = db.Column(
         db.Text
     )
 
-    # -----------------------------------------------------
-    # 등록 직원
-    # -----------------------------------------------------
-
-    created_by = db.Column(
-        db.String(50)
-    )
+    # =====================================================
+    # 날짜
+    # =====================================================
 
     created_at = db.Column(
         db.DateTime,
@@ -427,6 +510,143 @@ def prepare_database():
 
 
 # =========================================================
+# 기존 DB에 신규 Sale 컬럼 자동 추가
+# =========================================================
+
+def upgrade_sale_table():
+
+    """
+    기존 Render PostgreSQL의 Sale 테이블에
+    새로 추가된 컬럼이 없는 경우 자동으로 추가한다.
+
+    기존 데이터는 삭제하지 않는다.
+    """
+
+    with app.app_context():
+
+        try:
+
+            prepare_database()
+
+            inspector = db.inspect(db.engine)
+
+            tables = inspector.get_table_names()
+
+            if "sale" not in tables:
+
+                return
+
+            existing_columns = {
+                column["name"]
+                for column in inspector.get_columns("sale")
+            }
+
+            new_columns = {
+
+                "customer_birth":
+                    "VARCHAR(20)",
+
+                "customer_gender":
+                    "VARCHAR(10)",
+
+                "opening_number":
+                    "VARCHAR(50)",
+
+                "manufacturer":
+                    "VARCHAR(50)",
+
+                "imei":
+                    "VARCHAR(100)",
+
+                "serial_number":
+                    "VARCHAR(100)",
+
+                "selection_discount":
+                    "VARCHAR(20)",
+
+                "official_subsidy":
+                    "VARCHAR(50)",
+
+                "additional_subsidy":
+                    "VARCHAR(50)",
+
+                "seller_subsidy":
+                    "VARCHAR(50)",
+
+                "monthly_installment":
+                    "VARCHAR(50)",
+
+                "additional_services":
+                    "TEXT",
+
+                "service_period":
+                    "VARCHAR(50)",
+
+                "gifts":
+                    "TEXT",
+
+                "gift_status":
+                    "VARCHAR(30)",
+
+                "old_device":
+                    "VARCHAR(100)",
+
+                "old_device_return":
+                    "VARCHAR(20)",
+
+                "trade_in_price":
+                    "VARCHAR(50)",
+
+                "assigned_staff":
+                    "VARCHAR(50)"
+
+            }
+
+            missing_columns = {
+
+                name: column_type
+
+                for name, column_type
+                in new_columns.items()
+
+                if name not in existing_columns
+
+            }
+
+            if not missing_columns:
+
+                return
+
+            with db.engine.begin() as connection:
+
+                for column_name, column_type in missing_columns.items():
+
+                    if db.engine.dialect.name == "postgresql":
+
+                        connection.exec_driver_sql(
+                            f'ALTER TABLE sale ADD COLUMN IF NOT EXISTS "{column_name}" {column_type}'
+                        )
+
+                    elif db.engine.dialect.name == "sqlite":
+
+                        connection.exec_driver_sql(
+                            f'ALTER TABLE sale ADD COLUMN "{column_name}" {column_type}'
+                        )
+
+            print(
+                "Sale 테이블 신규 컬럼 추가 완료:",
+                ", ".join(missing_columns.keys())
+            )
+
+        except Exception as e:
+
+            print(
+                "Sale 테이블 자동 업그레이드 실패:",
+                str(e)
+            )
+
+
+# =========================================================
 # 관리자 계정 생성 / 확인
 # =========================================================
 
@@ -445,6 +665,7 @@ def sync_admin():
     )
 
     if not username or not password:
+
         return False
 
     user = User.query.filter_by(
@@ -454,21 +675,25 @@ def sync_admin():
     if user is None:
 
         user = User(
+
             username=username,
+
             password_hash=generate_password_hash(
                 password
             ),
+
             role="admin"
+
         )
 
-        db.session.add(user)
+        db.session.add(
+            user
+        )
 
         db.session.commit()
 
     else:
 
-        # 기존 관리자 계정도
-        # Render 환경변수 비밀번호와 동기화
         if not check_password_hash(
             user.password_hash,
             password
@@ -634,23 +859,15 @@ def dashboard():
 
         today = date.today()
 
-        # 전체 고객
         total = Customer.query.count()
 
-        # 오늘 등록 고객
-        #
-        # PostgreSQL에서
-        # date(timestamp) = varchar 문제가 생기지 않도록
-        # 날짜 범위를 사용한다.
         today_start = datetime.combine(
             today,
             datetime.min.time()
         )
 
         tomorrow_start = datetime.combine(
-            date.fromordinal(
-                today.toordinal() + 1
-            ),
+            today + timedelta(days=1),
             datetime.min.time()
         )
 
@@ -659,17 +876,14 @@ def dashboard():
             Customer.created_at < tomorrow_start
         ).count()
 
-        # 최근 고객
         recent = Customer.query.order_by(
             Customer.created_at.desc()
         ).limit(8).all()
 
-        # 최근 예약
         recent_bookings = Booking.query.order_by(
             Booking.created_at.desc()
         ).limit(5).all()
 
-        # 전체 예약
         all_bookings = Booking.query.order_by(
             Booking.created_at.asc()
         ).all()
@@ -694,7 +908,6 @@ def dashboard():
 
             })
 
-        # 오늘 예약
         today_bookings = []
 
         today_string = str(today)
@@ -709,7 +922,6 @@ def dashboard():
                     booking
                 )
 
-        # 개통 통계
         total_sales = Sale.query.count()
 
         today_sales = Sale.query.filter(
@@ -1105,11 +1317,8 @@ def sale_new():
             try:
 
                 opening_date = datetime.strptime(
-
                     opening_date_text,
-
                     "%Y-%m-%d"
-
                 ).date()
 
             except ValueError:
@@ -1127,7 +1336,61 @@ def sale_new():
             opening_date = date.today()
 
         # -------------------------------------------------
-        # 신규개통 데이터
+        # 금액
+        # -------------------------------------------------
+
+        device_price = request.form.get(
+            "device_price",
+            ""
+        ).replace(",", "").strip()
+
+        official_subsidy = request.form.get(
+            "official_subsidy",
+            ""
+        ).replace(",", "").strip()
+
+        additional_subsidy = request.form.get(
+            "additional_subsidy",
+            ""
+        ).replace(",", "").strip()
+
+        seller_subsidy = request.form.get(
+            "seller_subsidy",
+            ""
+        ).replace(",", "").strip()
+
+        subsidy = request.form.get(
+            "subsidy",
+            ""
+        ).replace(",", "").strip()
+
+        installment_price = request.form.get(
+            "installment_price",
+            ""
+        ).replace(",", "").strip()
+
+        cash_price = request.form.get(
+            "cash_price",
+            ""
+        ).replace(",", "").strip()
+
+        monthly_installment = request.form.get(
+            "monthly_installment",
+            ""
+        ).replace(",", "").strip()
+
+        monthly_payment = request.form.get(
+            "monthly_payment",
+            ""
+        ).replace(",", "").strip()
+
+        trade_in_price = request.form.get(
+            "trade_in_price",
+            ""
+        ).replace(",", "").strip()
+
+        # -------------------------------------------------
+        # Sale 생성
         # -------------------------------------------------
 
         sale = Sale(
@@ -1136,6 +1399,16 @@ def sale_new():
 
             customer_phone=request.form.get(
                 "customer_phone",
+                ""
+            ).strip(),
+
+            customer_birth=request.form.get(
+                "customer_birth",
+                ""
+            ).strip(),
+
+            customer_gender=request.form.get(
+                "customer_gender",
                 ""
             ).strip(),
 
@@ -1148,6 +1421,21 @@ def sale_new():
 
             opening_type=request.form.get(
                 "opening_type",
+                ""
+            ).strip(),
+
+            status=request.form.get(
+                "status",
+                "개통완료"
+            ).strip(),
+
+            opening_number=request.form.get(
+                "opening_number",
+                ""
+            ).strip(),
+
+            manufacturer=request.form.get(
+                "manufacturer",
                 ""
             ).strip(),
 
@@ -1166,6 +1454,16 @@ def sale_new():
                 ""
             ).strip(),
 
+            imei=request.form.get(
+                "imei",
+                ""
+            ).strip(),
+
+            serial_number=request.form.get(
+                "serial_number",
+                ""
+            ).strip(),
+
             plan=request.form.get(
                 "plan",
                 ""
@@ -1181,45 +1479,75 @@ def sale_new():
                 ""
             ).strip(),
 
-            device_price=request.form.get(
-                "device_price",
+            selection_discount=request.form.get(
+                "selection_discount",
                 ""
             ).strip(),
 
-            subsidy=request.form.get(
-                "subsidy",
+            device_price=device_price,
+
+            official_subsidy=official_subsidy,
+
+            additional_subsidy=additional_subsidy,
+
+            seller_subsidy=seller_subsidy,
+
+            subsidy=subsidy,
+
+            installment_price=installment_price,
+
+            cash_price=cash_price,
+
+            monthly_installment=monthly_installment,
+
+            monthly_payment=monthly_payment,
+
+            additional_services=request.form.get(
+                "additional_services",
                 ""
             ).strip(),
 
-            installment_price=request.form.get(
-                "installment_price",
+            service_period=request.form.get(
+                "service_period",
                 ""
             ).strip(),
 
-            cash_price=request.form.get(
-                "cash_price",
+            gifts=request.form.get(
+                "gifts",
                 ""
             ).strip(),
 
-            monthly_payment=request.form.get(
-                "monthly_payment",
+            gift_status=request.form.get(
+                "gift_status",
                 ""
             ).strip(),
 
-            status=request.form.get(
-                "status",
-                "개통완료"
+            old_device=request.form.get(
+                "old_device",
+                ""
             ).strip(),
 
-            memo=request.form.get(
-                "memo",
+            old_device_return=request.form.get(
+                "old_device_return",
+                ""
+            ).strip(),
+
+            trade_in_price=trade_in_price,
+
+            assigned_staff=request.form.get(
+                "assigned_staff",
                 ""
             ).strip(),
 
             created_by=session.get(
                 "username",
                 ""
-            )
+            ),
+
+            memo=request.form.get(
+                "memo",
+                ""
+            ).strip()
 
         )
 
@@ -1237,9 +1565,23 @@ def sale_new():
             url_for("sales")
         )
 
+    # 직원 목록
+    staff_list = User.query.filter_by(
+        role="staff"
+    ).order_by(
+        User.username.asc()
+    ).all()
+
     return render_template(
+
         "sale_form.html",
-        sale=None
+
+        sale=None,
+
+        staff_list=staff_list,
+
+        today=date.today().isoformat()
+
     )
 
 
@@ -1272,7 +1614,11 @@ def sales():
 
                 Sale.device.contains(q),
 
-                Sale.carrier.contains(q)
+                Sale.carrier.contains(q),
+
+                Sale.imei.contains(q),
+
+                Sale.opening_number.contains(q)
 
             )
 
@@ -1371,11 +1717,8 @@ def sale_edit(sale_id):
             try:
 
                 sale.opening_date = datetime.strptime(
-
                     opening_date_text,
-
                     "%Y-%m-%d"
-
                 ).date()
 
             except ValueError:
@@ -1393,12 +1736,30 @@ def sale_edit(sale_id):
 
                 )
 
+        # -------------------------------------------------
+        # 고객
+        # -------------------------------------------------
+
         sale.customer_name = customer_name
 
         sale.customer_phone = request.form.get(
             "customer_phone",
             ""
         ).strip()
+
+        sale.customer_birth = request.form.get(
+            "customer_birth",
+            ""
+        ).strip()
+
+        sale.customer_gender = request.form.get(
+            "customer_gender",
+            ""
+        ).strip()
+
+        # -------------------------------------------------
+        # 개통
+        # -------------------------------------------------
 
         sale.carrier = request.form.get(
             "carrier",
@@ -1407,6 +1768,25 @@ def sale_edit(sale_id):
 
         sale.opening_type = request.form.get(
             "opening_type",
+            ""
+        ).strip()
+
+        sale.status = request.form.get(
+            "status",
+            "개통완료"
+        ).strip()
+
+        sale.opening_number = request.form.get(
+            "opening_number",
+            ""
+        ).strip()
+
+        # -------------------------------------------------
+        # 단말기
+        # -------------------------------------------------
+
+        sale.manufacturer = request.form.get(
+            "manufacturer",
             ""
         ).strip()
 
@@ -1425,6 +1805,20 @@ def sale_edit(sale_id):
             ""
         ).strip()
 
+        sale.imei = request.form.get(
+            "imei",
+            ""
+        ).strip()
+
+        sale.serial_number = request.form.get(
+            "serial_number",
+            ""
+        ).strip()
+
+        # -------------------------------------------------
+        # 요금제
+        # -------------------------------------------------
+
         sale.plan = request.form.get(
             "plan",
             ""
@@ -1440,35 +1834,119 @@ def sale_edit(sale_id):
             ""
         ).strip()
 
+        sale.selection_discount = request.form.get(
+            "selection_discount",
+            ""
+        ).strip()
+
+        # -------------------------------------------------
+        # 금액
+        # -------------------------------------------------
+
         sale.device_price = request.form.get(
             "device_price",
             ""
-        ).strip()
+        ).replace(",", "").strip()
+
+        sale.official_subsidy = request.form.get(
+            "official_subsidy",
+            ""
+        ).replace(",", "").strip()
+
+        sale.additional_subsidy = request.form.get(
+            "additional_subsidy",
+            ""
+        ).replace(",", "").strip()
+
+        sale.seller_subsidy = request.form.get(
+            "seller_subsidy",
+            ""
+        ).replace(",", "").strip()
 
         sale.subsidy = request.form.get(
             "subsidy",
             ""
-        ).strip()
+        ).replace(",", "").strip()
 
         sale.installment_price = request.form.get(
             "installment_price",
             ""
-        ).strip()
+        ).replace(",", "").strip()
 
         sale.cash_price = request.form.get(
             "cash_price",
             ""
-        ).strip()
+        ).replace(",", "").strip()
+
+        sale.monthly_installment = request.form.get(
+            "monthly_installment",
+            ""
+        ).replace(",", "").strip()
 
         sale.monthly_payment = request.form.get(
             "monthly_payment",
             ""
+        ).replace(",", "").strip()
+
+        # -------------------------------------------------
+        # 부가서비스
+        # -------------------------------------------------
+
+        sale.additional_services = request.form.get(
+            "additional_services",
+            ""
         ).strip()
 
-        sale.status = request.form.get(
-            "status",
-            "개통완료"
+        sale.service_period = request.form.get(
+            "service_period",
+            ""
         ).strip()
+
+        # -------------------------------------------------
+        # 사은품
+        # -------------------------------------------------
+
+        sale.gifts = request.form.get(
+            "gifts",
+            ""
+        ).strip()
+
+        sale.gift_status = request.form.get(
+            "gift_status",
+            ""
+        ).strip()
+
+        # -------------------------------------------------
+        # 기존폰
+        # -------------------------------------------------
+
+        sale.old_device = request.form.get(
+            "old_device",
+            ""
+        ).strip()
+
+        sale.old_device_return = request.form.get(
+            "old_device_return",
+            ""
+        ).strip()
+
+        sale.trade_in_price = request.form.get(
+            "trade_in_price",
+            ""
+        ).replace(",", "").strip()
+
+        # -------------------------------------------------
+        # 담당직원
+        # -------------------------------------------------
+
+        sale.assigned_staff = request.form.get(
+            "assigned_staff",
+            ""
+        ).strip()
+
+        # -------------------------------------------------
+        # 메모
+        # -------------------------------------------------
 
         sale.memo = request.form.get(
             "memo",
@@ -1485,11 +1963,21 @@ def sale_edit(sale_id):
             url_for("sales")
         )
 
+    staff_list = User.query.filter_by(
+        role="staff"
+    ).order_by(
+        User.username.asc()
+    ).all()
+
     return render_template(
 
         "sale_form.html",
 
-        sale=sale
+        sale=sale,
+
+        staff_list=staff_list,
+
+        today=date.today().isoformat()
 
     )
 
@@ -1938,6 +2426,26 @@ def not_found(error):
 
 
 # =========================================================
+# 앱 시작 시 DB 준비
+# =========================================================
+
+with app.app_context():
+
+    try:
+
+        db.create_all()
+
+        upgrade_sale_table()
+
+    except Exception as e:
+
+        print(
+            "초기 데이터베이스 준비 실패:",
+            str(e)
+        )
+
+
+# =========================================================
 # 로컬 개발용 실행
 # =========================================================
 
@@ -1957,4 +2465,3 @@ if __name__ == "__main__":
         )
 
     )
-    

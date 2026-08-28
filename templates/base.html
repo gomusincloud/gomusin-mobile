@@ -40,7 +40,7 @@
             👤 {{ session.get('username') }}
 
             <small>
-                {{ '관리자' if session.get('role')=='admin' else '직원' }}
+                {{ '관리자' if session.get('role') == 'admin' else '직원' }}
             </small>
 
         </div>
@@ -50,23 +50,42 @@
 
         <nav>
 
+            <!-- 대시보드 -->
+
             <a href="{{ url_for('dashboard') }}">
                 🏠 대시보드
             </a>
+
+
+            <!-- 고객관리 -->
 
             <a href="{{ url_for('customers') }}">
                 👥 고객관리
             </a>
 
+
+            <!-- 예약관리 -->
+
             <a href="{{ url_for('bookings') }}">
                 📅 예약관리
             </a>
 
-            
+
+            <!-- 신규 개통 등록 -->
+
+            <a href="{{ url_for('sale_new') }}">
+                📱 신규 개통 등록
             </a>
 
 
-            <!-- 관리자에게만 표시 -->
+            <!-- 개통건 조회 -->
+
+            <a href="{{ url_for('sales') }}">
+                🔎 개통건 조회
+            </a>
+
+
+            <!-- 관리자 메뉴 -->
 
             {% if session.get('role') == 'admin' %}
 
@@ -95,14 +114,14 @@
 
         <!-- 알림 메시지 -->
 
-        {% with messages=get_flashed_messages() %}
+        {% with messages = get_flashed_messages() %}
 
             {% if messages %}
 
                 {% for m in messages %}
 
                     <div class="flash">
-                        {{m}}
+                        {{ m }}
                     </div>
 
                 {% endfor %}

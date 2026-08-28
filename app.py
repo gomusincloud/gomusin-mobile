@@ -1,10 +1,23 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    session,
+    flash,
+    abort
+)
+
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import (
+    generate_password_hash,
+    check_password_hash
+)
 
 
 # =========================================================
@@ -15,7 +28,7 @@ app = Flask(__name__)
 
 
 # =========================================================
-# 데이터베이스 연결
+# DATABASE 설정
 # =========================================================
 
 database_url = os.environ.get(
@@ -24,23 +37,18 @@ database_url = os.environ.get(
 ).strip()
 
 
-# ---------------------------------------------------------
-# Render PostgreSQL + psycopg3 연결
-#
-# Render에서 DATABASE_URL이
-# postgres:// 또는 postgresql:// 형태로 들어와도
-# SQLAlchemy가 psycopg3를 사용하도록 변경
-# ---------------------------------------------------------
-
+# Render PostgreSQL URL 호환
 if database_url.startswith("postgres://"):
 
     database_url = database_url.replace(
         "postgres://",
-        "postgresql+psycopg://",
+        "postgresql://",
         1
     )
 
-elif database_url.startswith("postgresql://"):
+
+# PostgreSQL은 psycopg 드라이버를 명시적으로 사용
+if database_url.startswith("postgresql://"):
 
     database_url = database_url.replace(
         "postgresql://",
@@ -61,18 +69,16 @@ app.config["SECRET_KEY"] = os.environ.get(
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 
-# =========================================================
-# SQLAlchemy 엔진 설정
-# =========================================================
-
 engine_options = {
-    "pool_pre_ping": True,
+    "pool_pre_ping": True
 }
 
 
+# PostgreSQL 연결 옵션
 if database_url.startswith("postgresql+psycopg://"):
 
     engine_options["connect_args"] = {
@@ -97,13 +103,15 @@ app.config["SESSION_COOKIE_SECURE"] = (
     cookie_secure == "true"
 )
 
+
 app.config["SESSION_COOKIE_HTTPONLY"] = True
+
 
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 
 # =========================================================
-# DB 초기화
+# SQLAlchemy
 # =========================================================
 
 db = SQLAlchemy(app)
@@ -309,13 +317,12 @@ def sync_admin():
         return False
 
 
-    # 관리자 아이디 검색
     user = User.query.filter_by(
         username=username
     ).first()
 
 
-    # 관리자가 없으면 새로 생성
+    # 관리자 계정이 없으면 생성
     if user is None:
 
         user = User(
@@ -328,10 +335,9 @@ def sync_admin():
 
         db.session.commit()
 
-
     else:
 
-        # 해당 계정이 관리자 권한이 아니면 관리자 권한 부여
+        # 해당 계정은 항상 관리자 권한 유지
         changed = False
 
         if user.role != "admin":
@@ -341,7 +347,8 @@ def sync_admin():
             changed = True
 
 
-        # 환경변수 비밀번호와 현재 비밀번호가 다르면 변경
+        # 환경변수 비밀번호와 기존 비밀번호가 다르면
+        # 관리자 비밀번호도 자동으로 갱신
         if not check_password_hash(
             user.password_hash,
             password
@@ -508,34 +515,69 @@ def dashboard():
         prepare_database()
 
 
+        # -------------------------------------------------
+        # 오늘 날짜
+        # -------------------------------------------------
+
         today = datetime.now().date()
 
 
-        # 전체 고객 수
+        # -------------------------------------------------
+        # 오늘 시작 / 내일 시작
+        #
+        # PostgreSQL의 date = varchar 오류를 피하기 위해
+        # 문자열 비교 대신 datetime 범위로 조회
+        # -------------------------------------------------
+
+        today_start = datetime.combine(
+            today,
+            datetime.min.time()
+        )
+
+
+        tomorrow_start = today_start + timedelta(
+            days=1
+        )
+
+
+        # -------------------------------------------------
+        # 전체 고객
+        # -------------------------------------------------
+
         total = Customer.query.count()
 
 
-        # 오늘 등록된 고객 수
+        # -------------------------------------------------
+        # 오늘 등록된 고객
+        # -------------------------------------------------
+
         today_count = Customer.query.filter(
-            db.func.date(Customer.created_at) == str(today)
+            Customer.created_at >= today_start,
+            Customer.created_at < tomorrow_start
         ).count()
 
 
+        # -------------------------------------------------
         # 최근 고객
+        # -------------------------------------------------
+
         recent = Customer.query.order_by(
             Customer.created_at.desc()
         ).limit(8).all()
 
 
+        # -------------------------------------------------
         # 최근 예약
+        # -------------------------------------------------
+
         recent_bookings = Booking.query.order_by(
             Booking.created_at.desc()
         ).limit(5).all()
 
 
-        # =====================================================
-        # 달력에 표시할 전체 예약
-        # =====================================================
+        # -------------------------------------------------
+        # 달력 전체 예약
+        # -------------------------------------------------
 
         all_bookings = Booking.query.order_by(
             Booking.created_at.asc()
@@ -564,11 +606,12 @@ def dashboard():
             })
 
 
-        # =====================================================
+        # -------------------------------------------------
         # 오늘 예약
-        # =====================================================
+        # -------------------------------------------------
 
         today_bookings = []
+
 
         today_string = str(today)
 
@@ -600,6 +643,8 @@ def dashboard():
         total=total,
 
         today_count=today_count,
+
+        recent=recent,
 
         bookings=recent_bookings,
 
@@ -742,11 +787,8 @@ def customer_new():
 
 
     return render_template(
-
         "customer_form.html",
-
         customer=None
-
     )
 
 
@@ -998,7 +1040,12 @@ def prices():
         ).strip()
 
 
-        if not device or not carrier or not sale_type or not price:
+        if (
+            not device
+            or not carrier
+            or not sale_type
+            or not price
+        ):
 
             flash(
                 "모든 시세 정보를 입력해주세요."
@@ -1121,7 +1168,10 @@ def staff():
         )
 
 
+        # -------------------------------------------------
         # 아이디 확인
+        # -------------------------------------------------
+
         if not username:
 
             flash(
@@ -1133,7 +1183,6 @@ def staff():
             )
 
 
-        # 아이디 길이
         if len(username) < 2:
 
             flash(
@@ -1145,7 +1194,10 @@ def staff():
             )
 
 
-        # 비밀번호 길이
+        # -------------------------------------------------
+        # 비밀번호 확인
+        # -------------------------------------------------
+
         if len(password) < 4:
 
             flash(
@@ -1157,7 +1209,6 @@ def staff():
             )
 
 
-        # 비밀번호 확인
         if password != password_confirm:
 
             flash(
@@ -1169,7 +1220,10 @@ def staff():
             )
 
 
+        # -------------------------------------------------
         # 기존 아이디 확인
+        # -------------------------------------------------
+
         existing_user = User.query.filter_by(
             username=username
         ).first()
@@ -1186,7 +1240,10 @@ def staff():
             )
 
 
+        # -------------------------------------------------
         # 직원 계정 생성
+        # -------------------------------------------------
+
         user = User(
 
             username=username,
@@ -1311,7 +1368,7 @@ def staff_password(user_id):
     )
 
 
-    # 관리자 비밀번호 변경 방지
+    # 관리자 비밀번호는 Render 환경변수에서 관리
     if user.role == "admin":
 
         flash(
@@ -1385,6 +1442,19 @@ def forbidden(error):
     return (
         "접근 권한이 없습니다.",
         403
+    )
+
+
+# =========================================================
+# 404 오류
+# =========================================================
+
+@app.errorhandler(404)
+def not_found(error):
+
+    return (
+        "페이지를 찾을 수 없습니다.",
+        404
     )
 
 

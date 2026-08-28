@@ -1,238 +1,904 @@
 {% extends "base.html" %}
+
 {% block content %}
 
 <style>
-.sale-wrap{max-width:1250px;margin:0 auto;padding:20px}
-.sale-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-.sale-title h1{margin:0;font-size:28px}
-.sale-title p{margin:5px 0 0;color:#777}
-.sale-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
-.card{grid-column:span 12;background:#fff;border:1px solid #e4e0d5;border-radius:14px;padding:20px;box-shadow:0 3px 12px rgba(0,0,0,.05)}
-.card h2{font-size:18px;margin:0 0 15px}
-.two{grid-column:span 6}
-.three{grid-column:span 4}
-.field{margin-bottom:12px}
-.field label{display:block;font-weight:700;font-size:13px;margin-bottom:6px}
-.field input,.field select,.field textarea{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #d7d2c6;border-radius:9px;background:#fff;font-size:14px}
-.field textarea{min-height:90px;resize:vertical}
-.money input{text-align:right}
-.help{font-size:12px;color:#888;margin-top:4px}
-.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.summary .box{border:1px solid #e5dfd0;border-radius:10px;padding:14px;background:#faf9f5}
-.summary .label{font-size:12px;color:#777}
-.summary .value{font-size:20px;font-weight:800;margin-top:5px}
-.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
-.btnx{border:0;border-radius:9px;padding:12px 20px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block}
-.btn-main{background:#111;color:#fff}.btn-sub{background:#f2efe7;color:#333}
-@media(max-width:850px){.two,.three{grid-column:span 12}.summary{grid-template-columns:repeat(2,1fr)}}
+    .sale-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding-bottom: 50px;
+    }
+
+    .sale-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .sale-header h1 {
+        margin: 0;
+        font-size: 28px;
+    }
+
+    .sale-header p {
+        margin: 7px 0 0;
+        color: #777;
+        font-size: 14px;
+    }
+
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 16px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #fff;
+        color: #333;
+        text-decoration: none;
+    }
+
+    .form-card {
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 14px;
+        margin-bottom: 20px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+
+    .section-title {
+        padding: 17px 22px;
+        background: #f8f9fb;
+        border-bottom: 1px solid #e5e5e5;
+        font-size: 17px;
+        font-weight: 700;
+    }
+
+    .section-title span {
+        margin-right: 7px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        padding: 22px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    .form-group.full {
+        grid-column: 1 / -1;
+    }
+
+    .form-group label {
+        font-size: 14px;
+        font-weight: 700;
+        color: #333;
+    }
+
+    .required {
+        color: #e53935;
+        margin-left: 3px;
+    }
+
+    .form-control {
+        width: 100%;
+        box-sizing: border-box;
+        height: 44px;
+        padding: 0 13px;
+        border: 1px solid #d8dce2;
+        border-radius: 8px;
+        background: #fff;
+        font-size: 14px;
+        outline: none;
+        transition: border-color .15s, box-shadow .15s;
+    }
+
+    textarea.form-control {
+        height: 110px;
+        padding: 12px 13px;
+        resize: vertical;
+    }
+
+    .form-control:focus {
+        border-color: #222;
+        box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+    }
+
+    .help-text {
+        color: #888;
+        font-size: 12px;
+    }
+
+    .money-wrap {
+        position: relative;
+    }
+
+    .money-wrap .form-control {
+        padding-right: 35px;
+    }
+
+    .money-unit {
+        position: absolute;
+        right: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #777;
+        font-size: 13px;
+    }
+
+    .bottom-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .btn-cancel,
+    .btn-submit {
+        height: 46px;
+        padding: 0 24px;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+    }
+
+    .btn-cancel {
+        background: #fff;
+        color: #333;
+        border: 1px solid #d8dce2;
+    }
+
+    .btn-submit {
+        border: none;
+        background: #111;
+        color: #fff;
+    }
+
+    .btn-submit:hover {
+        background: #333;
+    }
+
+    .notice {
+        margin: 0 22px 22px;
+        padding: 13px 15px;
+        background: #f5f7fa;
+        border-radius: 8px;
+        color: #666;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    @media (max-width: 700px) {
+        .sale-page {
+            padding: 0 10px 40px;
+        }
+
+        .sale-header {
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .sale-header h1 {
+            font-size: 23px;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+            padding: 16px;
+        }
+
+        .form-group.full {
+            grid-column: auto;
+        }
+
+        .section-title {
+            padding: 15px 16px;
+        }
+
+        .notice {
+            margin: 0 16px 16px;
+        }
+
+        .bottom-actions {
+            flex-direction: column-reverse;
+        }
+
+        .btn-cancel,
+        .btn-submit {
+            width: 100%;
+        }
+    }
 </style>
 
-<div class="sale-wrap">
-  <div class="sale-title">
-    <div>
-      <h1>{% if sale %}개통건 수정{% else %}신규 개통 등록{% endif %}</h1>
-      <p>2026년 판매일보를 기준으로 실제 매장 업무에 맞춘 입력 화면</p>
-    </div>
-    <a class="btnx btn-sub" href="{{ url_for('sales') }}">개통건 조회</a>
-  </div>
 
-  <form method="post">
-    <div class="sale-grid">
+<div class="sale-page">
 
-      <section class="card">
-        <h2>① 고객 / 판매 기본정보</h2>
-        <div class="sale-grid">
-          <div class="field three">
-            <label>개통일</label>
-            <input type="date" name="sale_date" value="{{ sale.sale_date.strftime('%Y-%m-%d') if sale else today }}" required>
-          </div>
-          <div class="field three">
-            <label>판매 구분</label>
-            <select name="sale_kind">
-              {% set sk = sale.sale_kind if sale else '휴대폰' %}
-              <option value="휴대폰" {% if sk=='휴대폰' %}selected{% endif %}>휴대폰</option>
-              <option value="인터넷/TV" {% if sk=='인터넷/TV' %}selected{% endif %}>인터넷 / TV</option>
-              <option value="휴대폰+인터넷/TV" {% if sk=='휴대폰+인터넷/TV' %}selected{% endif %}>휴대폰 + 인터넷/TV</option>
-            </select>
-          </div>
-          <div class="field three">
-            <label>고객명 *</label>
-            <input name="customer_name" value="{{ sale.customer_name if sale else '' }}" required>
-          </div>
-          <div class="field three">
-            <label>연락처</label>
-            <input name="customer_phone" value="{{ sale.customer_phone if sale else '' }}" placeholder="010-0000-0000">
-          </div>
-          <div class="field three">
-            <label>내방유형</label>
-            <input name="visit_type" value="{{ sale.visit_type if sale else '' }}" placeholder="기존고객 / 신규 / 당근 / O/B 등">
-          </div>
-          <div class="field three">
-            <label>판매자</label>
-            <select name="seller">
-              <option value="">선택</option>
-              {% for u in users %}
-              <option value="{{ u.username }}" {% if (sale and sale.seller==u.username) or (not sale and session.get('username')==u.username) %}selected{% endif %}>{{ u.username }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-      </section>
+    <!-- =========================
+         페이지 제목
+    ========================== -->
 
-      <section class="card">
-        <h2>② 개통 정보</h2>
-        <div class="sale-grid">
-          <div class="field three">
-            <label>통신사</label>
-            <select name="carrier">
-              {% set cv = sale.carrier if sale else '' %}
-              <option value="">선택</option>
-              <option {% if cv=='SKT' %}selected{% endif %}>SKT</option>
-              <option {% if cv=='KT' %}selected{% endif %}>KT</option>
-              <option {% if cv=='LGU+' %}selected{% endif %}>LGU+</option>
-              <option {% if cv=='알뜰폰' %}selected{% endif %}>알뜰폰</option>
-              <option {% if cv=='기타' %}selected{% endif %}>기타</option>
-            </select>
-          </div>
-          <div class="field three">
-            <label>가입유형</label>
-            <select name="signup_type">
-              {% set sv = sale.signup_type if sale else '' %}
-              <option value="">선택</option>
-              <option {% if sv=='신규' %}selected{% endif %}>신규</option>
-              <option {% if sv=='기기변경' %}selected{% endif %}>기기변경</option>
-              <option {% if sv=='번호이동' %}selected{% endif %}>번호이동</option>
-              <option {% if sv=='인터넷동판' %}selected{% endif %}>인터넷동판</option>
-            </select>
-          </div>
-          <div class="field three">
-            <label>기종</label>
-            <input name="device" value="{{ sale.device if sale else '' }}" placeholder="예: S948 / A175 / M166">
-          </div>
-          <div class="field three">
-            <label>일련번호</label>
-            <input name="serial_number" value="{{ sale.serial_number if sale else '' }}">
-          </div>
-          <div class="field three">
-            <label>청약점</label>
-            <input name="contract_store" value="{{ sale.contract_store if sale else '' }}" placeholder="신도 / 경기 / ACT 등">
-          </div>
-          <div class="field three">
-            <label>개통번호</label>
-            <input name="activation_number" value="{{ sale.activation_number if sale else '' }}">
-          </div>
-          <div class="field three">
-            <label>신/M/보</label>
-            <input name="new_m_existing" value="{{ sale.new_m_existing if sale else '' }}" placeholder="신규 / MNP / 보상 등">
-          </div>
-          <div class="field three">
-            <label>현/할</label>
-            <select name="payment_type">
-              {% set pv = sale.payment_type if sale else '' %}
-              <option value="">선택</option>
-              <option {% if pv=='현금' %}selected{% endif %}>현금</option>
-              <option {% if pv=='할부' %}selected{% endif %}>할부</option>
-            </select>
-          </div>
-          <div class="field three">
-            <label>할부개월</label>
-            <input type="number" name="installment_months" value="{{ sale.installment_months if sale and sale.installment_months else '' }}" placeholder="24">
-          </div>
-          <div class="field three money">
-            <label>할부원금</label>
-            <input type="number" name="installment_principal" value="{{ sale.installment_principal if sale else 0 }}">
-          </div>
-          <div class="field two">
-            <label>요금제</label>
-            <input name="plan" value="{{ sale.plan if sale else '' }}" placeholder="요금제명 / 유지조건">
-          </div>
-        </div>
-      </section>
+    <div class="sale-header">
 
-      <section class="card">
-        <h2>③ 부가서비스 / 인터넷·결합</h2>
-        <div class="sale-grid">
-          <div class="field two">
-            <label>부가서비스</label>
-            <textarea name="addon_text" placeholder="예: T올케어6 / 9,000 / 11월5일 해지">{{ sale.addon_text if sale else '' }}</textarea>
-          </div>
-          <div class="field two">
-            <label>인터넷 / TV 상품</label>
-            <textarea name="internet_plan" placeholder="예: 500M + TV 스탠다드 / 설치일">{{ sale.internet_plan if sale else '' }}</textarea>
-          </div>
-          <div class="field two">
-            <label>결합 확인</label>
-            <textarea name="combination_text" placeholder="예: 요즘가족결합 1회선 필수확인">{{ sale.combination_text if sale else '' }}</textarea>
-          </div>
+        <div>
+            <h1>신규개통 등록</h1>
+            <p>신규 개통 고객의 개통 정보를 등록합니다.</p>
         </div>
-      </section>
 
-      <section class="card">
-        <h2>④ 판매 조건 / 정산 입력</h2>
-        <div class="sale-grid">
-          <div class="field three"><label>단가표</label><input name="price_table" value="{{ sale.price_table if sale else '' }}" placeholder="예: 8-1호 선약"></div>
-          <div class="field three money"><label>R/B</label><input type="number" name="rebate" value="{{ sale.rebate if sale else 0 }}"></div>
-          <div class="field three money"><label>구두</label><input type="number" name="verbal" value="{{ sale.verbal if sale else 0 }}"></div>
-          <div class="field three money"><label>차감금액</label><input type="number" name="deduction" value="{{ sale.deduction if sale else 0 }}"></div>
-          <div class="field three money"><label>할부프리</label><input type="number" name="installment_free" value="{{ sale.installment_free if sale else 0 }}"></div>
-          <div class="field three money"><label>현금개통</label><input type="number" name="cash_activation" value="{{ sale.cash_activation if sale else 0 }}"></div>
-          <div class="field three money"><label>유심비</label><input type="number" name="usim_fee" value="{{ sale.usim_fee if sale else 0 }}"></div>
-          <div class="field three money"><label>수수료</label><input type="number" name="commission" value="{{ sale.commission if sale else 0 }}"></div>
-        </div>
-        <p class="help">정산 = R/B + 구두 - 차감 - 할부프리 - 현금개통 - 유심비 - 수수료</p>
-      </section>
-
-      <section class="card">
-        <h2>⑤ 비용 / 사은품 / 마진</h2>
-        <div class="sale-grid">
-          <div class="field three money"><label>위약금 대납 / 페이백</label><input type="number" name="penalty_payback" value="{{ sale.penalty_payback if sale else 0 }}"></div>
-          <div class="field three money"><label>중고폰 / 고객현금</label><input type="number" name="used_phone_cash" value="{{ sale.used_phone_cash if sale else 0 }}"></div>
-          <div class="field three money"><label>사은품 비용</label><input type="number" name="gift_cost" value="{{ sale.gift_cost if sale else 0 }}"></div>
-          <div class="field three money"><label>퀵비</label><input type="number" name="quick_cost" value="{{ sale.quick_cost if sale else 0 }}"></div>
-        </div>
-        <div class="summary">
-          <div class="box"><div class="label">정산</div><div class="value">{{ "{:,}".format(sale.settlement if sale else 0) }}원</div></div>
-          <div class="box"><div class="label">부가세율</div><div class="value">13.3%</div></div>
-          <div class="box"><div class="label">부가세액</div><div class="value">{{ "{:,}".format(sale.vat_amount if sale else 0) }}원</div></div>
-          <div class="box"><div class="label">예상 마진</div><div class="value">{{ "{:,}".format(sale.margin if sale else 0) }}원</div></div>
-        </div>
-        <p class="help">저장하면 서버에서 정산/부가세/마진을 다시 계산합니다.</p>
-      </section>
-
-      <section class="card">
-        <h2>⑥ 실제 상담 / 판매 기록</h2>
-        <div class="sale-grid">
-          <div class="field two"><label>구두내용 / 부가추가 / 차감내역</label><textarea name="policy_note">{{ sale.policy_note if sale else '' }}</textarea></div>
-          <div class="field two"><label>판매내용</label><textarea name="sales_note">{{ sale.sales_note if sale else '' }}</textarea></div>
-          <div class="field two"><label>고객약속</label><textarea name="customer_promise">{{ sale.customer_promise if sale else '' }}</textarea></div>
-          <div class="field two"><label>복지확인</label><textarea name="welfare_note">{{ sale.welfare_note if sale else '' }}</textarea></div>
-          <div class="field two"><label>중고폰</label><textarea name="used_phone_note">{{ sale.used_phone_note if sale else '' }}</textarea></div>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>⑦ 개통 후 관리 상태</h2>
-        <div class="sale-grid">
-          {% set ds = sale.docs_status if sale else '미확인' %}
-          {% set gs = sale.gift_status if sale else '준비필요' %}
-          {% set ads = sale.addon_status if sale else '확인필요' %}
-          {% set cs = sale.combination_status if sale else '확인필요' %}
-          {% set acs = sale.aftercare_status if sale else '관리필요' %}
-          <div class="field three"><label>서류 확인</label><select name="docs_status"><option {% if ds=='미확인' %}selected{% endif %}>미확인</option><option {% if ds=='확인완료' %}selected{% endif %}>확인완료</option></select></div>
-          <div class="field three"><label>사은품</label><select name="gift_status"><option {% if gs=='준비필요' %}selected{% endif %}>준비필요</option><option {% if gs=='준비완료' %}selected{% endif %}>준비완료</option><option {% if gs=='전달완료' %}selected{% endif %}>전달완료</option></select></div>
-          <div class="field three"><label>부가서비스</label><select name="addon_status"><option {% if ads=='확인필요' %}selected{% endif %}>확인필요</option><option {% if ads=='확인완료' %}selected{% endif %}>확인완료</option></select></div>
-          <div class="field three"><label>결합</label><select name="combination_status"><option {% if cs=='확인필요' %}selected{% endif %}>확인필요</option><option {% if cs=='확인완료' %}selected{% endif %}>확인완료</option></select></div>
-          <div class="field three"><label>사후관리</label><select name="aftercare_status"><option {% if acs=='관리필요' %}selected{% endif %}>관리필요</option><option {% if acs=='관리완료' %}selected{% endif %}>관리완료</option></select></div>
-        </div>
-      </section>
+        <a
+            href="{{ url_for('sales') }}"
+            class="back-btn"
+        >
+            ← 개통내역
+        </a>
 
     </div>
 
-    <div class="actions">
-      <a class="btnx btn-sub" href="{{ url_for('sales') }}">취소</a>
-      <button class="btnx btn-main" type="submit">{% if sale %}수정 저장{% else %}개통건 저장{% endif %}</button>
+
+    <!-- =========================
+         고객 기본정보
+    ========================== -->
+
+    <div class="form-card">
+
+        <div class="section-title">
+            <span>👤</span>
+            고객 기본정보
+        </div>
+
+        <div class="form-grid">
+
+            <div class="form-group">
+
+                <label>
+                    고객명
+                    <span class="required">*</span>
+                </label>
+
+                <input
+                    type="text"
+                    name="customer_name"
+                    class="form-control"
+                    placeholder="고객명을 입력하세요"
+                    required
+                    form="saleForm"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    고객 연락처
+                </label>
+
+                <input
+                    type="tel"
+                    name="customer_phone"
+                    class="form-control"
+                    placeholder="010-0000-0000"
+                    form="saleForm"
+                >
+
+            </div>
+
+        </div>
+
     </div>
-  </form>
+
+
+    <!-- =========================
+         개통 기본정보
+    ========================== -->
+
+    <div class="form-card">
+
+        <div class="section-title">
+            <span>📱</span>
+            개통 기본정보
+        </div>
+
+        <div class="form-grid">
+
+            <div class="form-group">
+
+                <label>
+                    개통일
+                    <span class="required">*</span>
+                </label>
+
+                <input
+                    type="date"
+                    name="opening_date"
+                    class="form-control"
+                    value="{{ today if today is defined else '' }}"
+                    required
+                    form="saleForm"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    통신사
+                </label>
+
+                <select
+                    name="carrier"
+                    class="form-control"
+                    form="saleForm"
+                >
+
+                    <option value="">통신사 선택</option>
+                    <option value="SKT">SKT</option>
+                    <option value="KT">KT</option>
+                    <option value="LG U+">LG U+</option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    개통 유형
+                </label>
+
+                <select
+                    name="opening_type"
+                    class="form-control"
+                    form="saleForm"
+                >
+
+                    <option value="">개통 유형 선택</option>
+                    <option value="신규가입">신규가입</option>
+                    <option value="번호이동">번호이동</option>
+                    <option value="기기변경">기기변경</option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    개통 상태
+                </label>
+
+                <select
+                    name="status"
+                    class="form-control"
+                    form="saleForm"
+                >
+
+                    <option value="개통완료">개통완료</option>
+                    <option value="개통예정">개통예정</option>
+                    <option value="개통대기">개통대기</option>
+                    <option value="개통취소">개통취소</option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         단말기 정보
+    ========================== -->
+
+    <div class="form-card">
+
+        <div class="section-title">
+            <span>📲</span>
+            단말기 정보
+        </div>
+
+        <div class="form-grid">
+
+            <div class="form-group">
+
+                <label>
+                    단말기
+                </label>
+
+                <input
+                    type="text"
+                    name="device"
+                    class="form-control"
+                    placeholder="예: 갤럭시 S26 울트라"
+                    form="saleForm"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    색상
+                </label>
+
+                <input
+                    type="text"
+                    name="color"
+                    class="form-control"
+                    placeholder="예: 블랙"
+                    form="saleForm"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    용량
+                </label>
+
+                <select
+                    name="storage"
+                    class="form-control"
+                    form="saleForm"
+                >
+
+                    <option value="">용량 선택</option>
+                    <option value="128GB">128GB</option>
+                    <option value="256GB">256GB</option>
+                    <option value="512GB">512GB</option>
+                    <option value="1TB">1TB</option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         요금제 / 계약정보
+    ========================== -->
+
+    <div class="form-card">
+
+        <div class="section-title">
+            <span>📄</span>
+            요금제 / 계약정보
+        </div>
+
+        <div class="form-grid">
+
+            <div class="form-group">
+
+                <label>
+                    요금제
+                </label>
+
+                <input
+                    type="text"
+                    name="plan"
+                    class="form-control"
+                    placeholder="예: 99,000원 요금제"
+                    form="saleForm"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    약정 유형
+                </label>
+
+                <select
+                    name="contract_type"
+                    class="form-control"
+                    form="saleForm"
+                >
+
+                    <option value="">약정 유형 선택</option>
+                    <option value="공시지원금">공시지원금</option>
+                    <option value="선택약정">선택약정</option>
+                    <option value="자급제">자급제</option>
+                    <option value="무약정">무약정</option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    할부개월
+                </label>
+
+                <select
+                    name="installment_months"
+                    class="form-control"
+                    form="saleForm"
+                >
+
+                    <option value="">선택</option>
+                    <option value="0">일시불</option>
+                    <option value="12">12개월</option>
+                    <option value="24">24개월</option>
+                    <option value="30">30개월</option>
+                    <option value="36">36개월</option>
+                    <option value="48">48개월</option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         금액정보
+    ========================== -->
+
+    <div class="form-card">
+
+        <div class="section-title">
+            <span>💰</span>
+            금액정보
+        </div>
+
+        <div class="form-grid">
+
+            <div class="form-group">
+
+                <label>
+                    출고가
+                </label>
+
+                <div class="money-wrap">
+
+                    <input
+                        type="text"
+                        name="device_price"
+                        class="form-control money-input"
+                        placeholder="0"
+                        inputmode="numeric"
+                        form="saleForm"
+                    >
+
+                    <span class="money-unit">원</span>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    지원금
+                </label>
+
+                <div class="money-wrap">
+
+                    <input
+                        type="text"
+                        name="subsidy"
+                        class="form-control money-input"
+                        placeholder="0"
+                        inputmode="numeric"
+                        form="saleForm"
+                    >
+
+                    <span class="money-unit">원</span>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    할부원금
+                </label>
+
+                <div class="money-wrap">
+
+                    <input
+                        type="text"
+                        name="installment_price"
+                        class="form-control money-input"
+                        placeholder="0"
+                        inputmode="numeric"
+                        form="saleForm"
+                    >
+
+                    <span class="money-unit">원</span>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    현금완납
+                </label>
+
+                <div class="money-wrap">
+
+                    <input
+                        type="text"
+                        name="cash_price"
+                        class="form-control money-input"
+                        placeholder="0"
+                        inputmode="numeric"
+                        form="saleForm"
+                    >
+
+                    <span class="money-unit">원</span>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>
+                    월 납부금
+                </label>
+
+                <div class="money-wrap">
+
+                    <input
+                        type="text"
+                        name="monthly_payment"
+                        class="form-control money-input"
+                        placeholder="0"
+                        inputmode="numeric"
+                        form="saleForm"
+                    >
+
+                    <span class="money-unit">원</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="notice">
+            금액은 숫자만 입력해도 됩니다. 예: 550000 → 550,000원
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         메모
+    ========================== -->
+
+    <div class="form-card">
+
+        <div class="section-title">
+            <span>📝</span>
+            메모
+        </div>
+
+        <div class="form-grid">
+
+            <div class="form-group full">
+
+                <label>
+                    상담 / 개통 메모
+                </label>
+
+                <textarea
+                    name="memo"
+                    class="form-control"
+                    placeholder="고객 요청사항, 사은품, 특이사항 등을 입력하세요."
+                    form="saleForm"
+                ></textarea>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         등록 버튼
+    ========================== -->
+
+    <form
+        id="saleForm"
+        method="POST"
+        action="{{ url_for('sale_new') }}"
+    >
+
+        <!-- 실제 입력값들은 위에서 form="saleForm"으로 연결되어 있음 -->
+
+        <div class="bottom-actions">
+
+            <a
+                href="{{ url_for('sales') }}"
+                class="btn-cancel"
+            >
+                취소
+            </a>
+
+            <button
+                type="submit"
+                class="btn-submit"
+            >
+                신규개통 등록
+            </button>
+
+        </div>
+
+    </form>
+
 </div>
+
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    /*
+     * 금액 입력
+     * 1000000 → 1,000,000
+     */
+
+    const moneyInputs =
+        document.querySelectorAll(".money-input");
+
+    moneyInputs.forEach(function(input) {
+
+        input.addEventListener("input", function() {
+
+            let value =
+                this.value.replace(/[^0-9]/g, "");
+
+            if (value) {
+
+                this.value =
+                    Number(value).toLocaleString("ko-KR");
+
+            } else {
+
+                this.value = "";
+
+            }
+
+        });
+
+        input.addEventListener("focus", function() {
+
+            this.value =
+                this.value.replace(/,/g, "");
+
+        });
+
+        input.addEventListener("blur", function() {
+
+            let value =
+                this.value.replace(/[^0-9]/g, "");
+
+            if (value) {
+
+                this.value =
+                    Number(value).toLocaleString("ko-KR");
+
+            }
+
+        });
+
+    });
+
+
+    /*
+     * 연락처 자동 하이픈
+     */
+
+    const phoneInput =
+        document.querySelector(
+            'input[name="customer_phone"]'
+        );
+
+    if (phoneInput) {
+
+        phoneInput.addEventListener(
+            "input",
+            function() {
+
+                let value =
+                    this.value.replace(/[^0-9]/g, "");
+
+                if (value.length <= 3) {
+
+                    this.value = value;
+
+                } else if (value.length <= 7) {
+
+                    this.value =
+                        value.slice(0, 3) +
+                        "-" +
+                        value.slice(3);
+
+                } else {
+
+                    this.value =
+                        value.slice(0, 3) +
+                        "-" +
+                        value.slice(3, 7) +
+                        "-" +
+                        value.slice(7, 11);
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /*
+     * 폼 제출 전 금액의 콤마 제거
+     *
+     * DB에는 숫자 형태의 문자열로 저장되도록
+     */
+
+    const form =
+        document.getElementById("saleForm");
+
+    if (form) {
+
+        form.addEventListener(
+            "submit",
+            function() {
+
+                moneyInputs.forEach(function(input) {
+
+                    input.value =
+                        input.value.replace(/,/g, "");
+
+                });
+
+            }
+        );
+
+    }
+
+});
+
+</script>
 
 {% endblock %}

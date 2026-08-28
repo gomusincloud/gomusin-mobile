@@ -13,44 +13,98 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
-database_url = os.environ.get("DATABASE_URL", "sqlite:///gomusin.db")
 
-# postgres:// 형식 호환
+# =========================================================
+# 데이터베이스 연결
+# =========================================================
+
+database_url = os.environ.get(
+    "DATABASE_URL",
+    "sqlite:///gomusin.db"
+).strip()
+
+
+# ---------------------------------------------------------
+# Render PostgreSQL + psycopg3 연결
+#
+# Render에서 DATABASE_URL이
+# postgres:// 또는 postgresql:// 형태로 들어와도
+# SQLAlchemy가 psycopg3를 사용하도록 변경
+# ---------------------------------------------------------
+
 if database_url.startswith("postgres://"):
+
     database_url = database_url.replace(
         "postgres://",
-        "postgresql://",
+        "postgresql+psycopg://",
         1
     )
+
+elif database_url.startswith("postgresql://"):
+
+    database_url = database_url.replace(
+        "postgresql://",
+        "postgresql+psycopg://",
+        1
+    )
+
+
+# =========================================================
+# Flask 보안 설정
+# =========================================================
 
 app.config["SECRET_KEY"] = os.environ.get(
     "SECRET_KEY",
     "CHANGE_THIS_SECRET_KEY"
 )
 
+
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+
+# =========================================================
+# SQLAlchemy 엔진 설정
+# =========================================================
 
 engine_options = {
     "pool_pre_ping": True,
 }
 
-if database_url.startswith("postgresql"):
+
+if database_url.startswith("postgresql+psycopg://"):
+
     engine_options["connect_args"] = {
         "connect_timeout": 10
     }
 
+
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
+
+
+# =========================================================
+# 세션 쿠키 설정
+# =========================================================
 
 cookie_secure = os.environ.get(
     "COOKIE_SECURE",
     "true"
 ).lower()
 
-app.config["SESSION_COOKIE_SECURE"] = cookie_secure == "true"
+
+app.config["SESSION_COOKIE_SECURE"] = (
+    cookie_secure == "true"
+)
+
 app.config["SESSION_COOKIE_HTTPONLY"] = True
+
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
+
+# =========================================================
+# DB 초기화
+# =========================================================
 
 db = SQLAlchemy(app)
 
@@ -249,13 +303,19 @@ def sync_admin():
         ""
     )
 
+    # Render 환경변수가 없으면 아무것도 하지 않음
     if not username or not password:
+
         return False
 
+
+    # 관리자 아이디 검색
     user = User.query.filter_by(
         username=username
     ).first()
 
+
+    # 관리자가 없으면 새로 생성
     if user is None:
 
         user = User(
@@ -265,13 +325,39 @@ def sync_admin():
         )
 
         db.session.add(user)
+
         db.session.commit()
+
 
     else:
 
+        # 해당 계정이 관리자 권한이 아니면 관리자 권한 부여
+        changed = False
+
         if user.role != "admin":
+
             user.role = "admin"
+
+            changed = True
+
+
+        # 환경변수 비밀번호와 현재 비밀번호가 다르면 변경
+        if not check_password_hash(
+            user.password_hash,
+            password
+        ):
+
+            user.password_hash = generate_password_hash(
+                password
+            )
+
+            changed = True
+
+
+        if changed:
+
             db.session.commit()
+
 
     return True
 
@@ -286,6 +372,7 @@ def login_required(view):
     def wrapped(*args, **kwargs):
 
         if not session.get("user_id"):
+
             return redirect(
                 url_for("login")
             )
@@ -305,6 +392,7 @@ def admin_required(view):
     def wrapped(*args, **kwargs):
 
         if session.get("role") != "admin":
+
             abort(403)
 
         return view(*args, **kwargs)
@@ -328,7 +416,10 @@ def health():
 # 로그인
 # =========================================================
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route(
+    "/login",
+    methods=["GET", "POST"]
+)
 def login():
 
     try:
@@ -342,6 +433,7 @@ def login():
             500
         )
 
+
     if request.method == "POST":
 
         username = request.form.get(
@@ -354,9 +446,11 @@ def login():
             ""
         )
 
+
         user = User.query.filter_by(
             username=username
         ).first()
+
 
         if user and check_password_hash(
             user.password_hash,
@@ -366,16 +460,21 @@ def login():
             session.clear()
 
             session["user_id"] = user.id
+
             session["username"] = user.username
+
             session["role"] = user.role
+
 
             return redirect(
                 url_for("dashboard")
             )
 
+
         flash(
             "아이디 또는 비밀번호가 올바르지 않습니다."
         )
+
 
     return render_template(
         "login.html"
@@ -399,6 +498,7 @@ def logout():
 # =========================================================
 # 메인 대시보드
 # =========================================================
+
 @app.route("/")
 @login_required
 def dashboard():
@@ -407,42 +507,62 @@ def dashboard():
 
         prepare_database()
 
+
         today = datetime.now().date()
 
+
+        # 전체 고객 수
         total = Customer.query.count()
 
+
+        # 오늘 등록된 고객 수
         today_count = Customer.query.filter(
             db.func.date(Customer.created_at) == str(today)
         ).count()
 
+
+        # 최근 고객
         recent = Customer.query.order_by(
             Customer.created_at.desc()
         ).limit(8).all()
 
+
+        # 최근 예약
         recent_bookings = Booking.query.order_by(
             Booking.created_at.desc()
         ).limit(5).all()
 
+
         # =====================================================
-        # 달력에 표시할 전체 예약 데이터
+        # 달력에 표시할 전체 예약
         # =====================================================
 
         all_bookings = Booking.query.order_by(
             Booking.created_at.asc()
         ).all()
 
+
         calendar_bookings = []
+
 
         for booking in all_bookings:
 
             calendar_bookings.append({
+
                 "id": booking.id,
+
                 "name": booking.name,
+
                 "phone": booking.phone or "",
+
                 "visit_date": booking.visit_date or "",
+
                 "device": booking.device or "",
+
                 "memo": booking.memo or ""
+
             })
+
 
         # =====================================================
         # 오늘 예약
@@ -452,12 +572,18 @@ def dashboard():
 
         today_string = str(today)
 
+
         for booking in all_bookings:
 
             visit_date = booking.visit_date or ""
 
+
             if visit_date[:10] == today_string:
-                today_bookings.append(booking)
+
+                today_bookings.append(
+                    booking
+                )
+
 
     except Exception as e:
 
@@ -466,15 +592,22 @@ def dashboard():
             500
         )
 
-    return render_template(
-        "dashboard.html",
-        total=total,
-        today_count=today_count,
-        bookings=recent_bookings,
-        today_bookings=today_bookings,
-        calendar_bookings=calendar_bookings
-    )
 
+    return render_template(
+
+        "dashboard.html",
+
+        total=total,
+
+        today_count=today_count,
+
+        bookings=recent_bookings,
+
+        today_bookings=today_bookings,
+
+        calendar_bookings=calendar_bookings
+
+    )
 
 
 # =========================================================
@@ -487,30 +620,44 @@ def customers():
 
     prepare_database()
 
+
     q = request.args.get(
         "q",
         ""
     ).strip()
 
+
     query = Customer.query
+
 
     if q:
 
         query = query.filter(
+
             db.or_(
+
                 Customer.name.contains(q),
+
                 Customer.phone.contains(q)
+
             )
+
         )
+
 
     customer_list = query.order_by(
         Customer.created_at.desc()
     ).all()
 
+
     return render_template(
+
         "customers.html",
+
         customers=customer_list,
+
         q=q
+
     )
 
 
@@ -527,12 +674,14 @@ def customer_new():
 
     prepare_database()
 
+
     if request.method == "POST":
 
         name = request.form.get(
             "name",
             ""
         ).strip()
+
 
         if not name:
 
@@ -543,6 +692,7 @@ def customer_new():
             return redirect(
                 url_for("customer_new")
             )
+
 
         customer = Customer(
 
@@ -572,22 +722,31 @@ def customer_new():
                 "memo",
                 ""
             ).strip()
+
         )
 
+
         db.session.add(customer)
+
         db.session.commit()
+
 
         flash(
             "고객이 등록되었습니다."
         )
 
+
         return redirect(
             url_for("customers")
         )
 
+
     return render_template(
+
         "customer_form.html",
+
         customer=None
+
     )
 
 
@@ -604,9 +763,11 @@ def customer_edit(customer_id):
 
     prepare_database()
 
+
     customer = Customer.query.get_or_404(
         customer_id
     )
+
 
     if request.method == "POST":
 
@@ -615,44 +776,56 @@ def customer_edit(customer_id):
             ""
         ).strip()
 
+
         customer.phone = request.form.get(
             "phone",
             ""
         ).strip()
+
 
         customer.device = request.form.get(
             "device",
             ""
         ).strip()
 
+
         customer.carrier = request.form.get(
             "carrier",
             ""
         ).strip()
+
 
         customer.status = request.form.get(
             "status",
             "상담중"
         ).strip()
 
+
         customer.memo = request.form.get(
             "memo",
             ""
         ).strip()
 
+
         db.session.commit()
+
 
         flash(
             "고객 정보가 수정되었습니다."
         )
 
+
         return redirect(
             url_for("customers")
         )
 
+
     return render_template(
+
         "customer_form.html",
+
         customer=customer
+
     )
 
 
@@ -670,16 +843,21 @@ def customer_delete(customer_id):
 
     prepare_database()
 
+
     customer = Customer.query.get_or_404(
         customer_id
     )
 
+
     db.session.delete(customer)
+
     db.session.commit()
+
 
     flash(
         "고객 정보가 삭제되었습니다."
     )
+
 
     return redirect(
         url_for("customers")
@@ -699,12 +877,14 @@ def bookings():
 
     prepare_database()
 
+
     if request.method == "POST":
 
         name = request.form.get(
             "name",
             ""
         ).strip()
+
 
         if not name:
 
@@ -715,6 +895,7 @@ def bookings():
             return redirect(
                 url_for("bookings")
             )
+
 
         booking = Booking(
 
@@ -739,26 +920,36 @@ def bookings():
                 "memo",
                 ""
             ).strip()
+
         )
 
+
         db.session.add(booking)
+
         db.session.commit()
+
 
         flash(
             "예약이 등록되었습니다."
         )
 
+
         return redirect(
             url_for("bookings")
         )
+
 
     booking_list = Booking.query.order_by(
         Booking.created_at.desc()
     ).all()
 
+
     return render_template(
+
         "bookings.html",
+
         bookings=booking_list
+
     )
 
 
@@ -775,30 +966,37 @@ def prices():
 
     prepare_database()
 
+
     if request.method == "POST":
 
         if session.get("role") != "admin":
+
             abort(403)
+
 
         device = request.form.get(
             "device",
             ""
         ).strip()
 
+
         carrier = request.form.get(
             "carrier",
             ""
         ).strip()
+
 
         sale_type = request.form.get(
             "sale_type",
             ""
         ).strip()
 
+
         price = request.form.get(
             "price",
             ""
         ).strip()
+
 
         if not device or not carrier or not sale_type or not price:
 
@@ -810,6 +1008,7 @@ def prices():
                 url_for("prices")
             )
 
+
         item = Price(
 
             device=device,
@@ -819,26 +1018,36 @@ def prices():
             sale_type=sale_type,
 
             price=price
+
         )
 
+
         db.session.add(item)
+
         db.session.commit()
+
 
         flash(
             "시세가 등록되었습니다."
         )
 
+
         return redirect(
             url_for("prices")
         )
+
 
     price_list = Price.query.order_by(
         Price.updated_at.desc()
     ).all()
 
+
     return render_template(
+
         "prices.html",
+
         prices=price_list
+
     )
 
 
@@ -856,16 +1065,21 @@ def price_delete(price_id):
 
     prepare_database()
 
+
     item = Price.query.get_or_404(
         price_id
     )
 
+
     db.session.delete(item)
+
     db.session.commit()
+
 
     flash(
         "시세가 삭제되었습니다."
     )
+
 
     return redirect(
         url_for("prices")
@@ -886,6 +1100,7 @@ def staff():
 
     prepare_database()
 
+
     if request.method == "POST":
 
         username = request.form.get(
@@ -893,15 +1108,18 @@ def staff():
             ""
         ).strip()
 
+
         password = request.form.get(
             "password",
             ""
         )
 
+
         password_confirm = request.form.get(
             "password_confirm",
             ""
         )
+
 
         # 아이디 확인
         if not username:
@@ -914,6 +1132,7 @@ def staff():
                 url_for("staff")
             )
 
+
         # 아이디 길이
         if len(username) < 2:
 
@@ -925,7 +1144,8 @@ def staff():
                 url_for("staff")
             )
 
-        # 비밀번호 확인
+
+        # 비밀번호 길이
         if len(password) < 4:
 
             flash(
@@ -936,6 +1156,8 @@ def staff():
                 url_for("staff")
             )
 
+
+        # 비밀번호 확인
         if password != password_confirm:
 
             flash(
@@ -946,10 +1168,12 @@ def staff():
                 url_for("staff")
             )
 
+
         # 기존 아이디 확인
         existing_user = User.query.filter_by(
             username=username
         ).first()
+
 
         if existing_user:
 
@@ -961,31 +1185,47 @@ def staff():
                 url_for("staff")
             )
 
+
         # 직원 계정 생성
         user = User(
+
             username=username,
-            password_hash=generate_password_hash(password),
+
+            password_hash=generate_password_hash(
+                password
+            ),
+
             role="staff"
+
         )
 
+
         db.session.add(user)
+
         db.session.commit()
+
 
         flash(
             f"{username} 직원 계정이 생성되었습니다."
         )
 
+
         return redirect(
             url_for("staff")
         )
+
 
     staff_list = User.query.order_by(
         User.created_at.asc()
     ).all()
 
+
     return render_template(
+
         "staff.html",
+
         users=staff_list
+
     )
 
 
@@ -1003,9 +1243,11 @@ def staff_delete(user_id):
 
     prepare_database()
 
+
     user = User.query.get_or_404(
         user_id
     )
+
 
     # 관리자 계정 삭제 방지
     if user.role == "admin":
@@ -1018,6 +1260,7 @@ def staff_delete(user_id):
             url_for("staff")
         )
 
+
     # 현재 로그인 계정 삭제 방지
     if user.id == session.get("user_id"):
 
@@ -1029,14 +1272,19 @@ def staff_delete(user_id):
             url_for("staff")
         )
 
+
     username = user.username
 
+
     db.session.delete(user)
+
     db.session.commit()
+
 
     flash(
         f"{username} 직원 계정이 삭제되었습니다."
     )
+
 
     return redirect(
         url_for("staff")
@@ -1057,11 +1305,13 @@ def staff_password(user_id):
 
     prepare_database()
 
+
     user = User.query.get_or_404(
         user_id
     )
 
-    # 관리자 비밀번호는 여기서 변경하지 않음
+
+    # 관리자 비밀번호 변경 방지
     if user.role == "admin":
 
         flash(
@@ -1072,15 +1322,18 @@ def staff_password(user_id):
             url_for("staff")
         )
 
+
     new_password = request.form.get(
         "new_password",
         ""
     )
 
+
     confirm_password = request.form.get(
         "confirm_password",
         ""
     )
+
 
     if len(new_password) < 4:
 
@@ -1092,6 +1345,7 @@ def staff_password(user_id):
             url_for("staff")
         )
 
+
     if new_password != confirm_password:
 
         flash(
@@ -1102,15 +1356,19 @@ def staff_password(user_id):
             url_for("staff")
         )
 
+
     user.password_hash = generate_password_hash(
         new_password
     )
 
+
     db.session.commit()
+
 
     flash(
         f"{user.username} 직원의 비밀번호가 변경되었습니다."
     )
+
 
     return redirect(
         url_for("staff")
@@ -1137,11 +1395,14 @@ def forbidden(error):
 if __name__ == "__main__":
 
     app.run(
+
         host="0.0.0.0",
+
         port=int(
             os.environ.get(
                 "PORT",
                 "5000"
             )
         )
+
     )

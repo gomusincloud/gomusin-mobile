@@ -2,44 +2,306 @@
 
 {% block content %}
 
+<div class="dashboard">
+
+```
+<!-- =====================================================
+     DASHBOARD HEADER
+====================================================== -->
+
 <div class="dashboard-header">
 
     <div>
+        <div class="dashboard-eyebrow">
+            GOMUSIN MOBILE
+        </div>
+
         <h1>오늘의 업무</h1>
+
         <p id="todayText"></p>
     </div>
 
-    <a href="{{ url_for('bookings') }}" class="dashboard-action">
-        + 예약 등록
-    </a>
+    <div class="dashboard-actions">
+
+        <a
+            href="{{ url_for('sale_new') }}"
+            class="dashboard-action primary"
+        >
+            <span>＋</span>
+            신규 개통
+        </a>
+
+        <a
+            href="{{ url_for('customer_new') }}"
+            class="dashboard-action"
+        >
+            <span>＋</span>
+            고객 등록
+        </a>
+
+        <a
+            href="{{ url_for('bookings') }}"
+            class="dashboard-action"
+        >
+            <span>＋</span>
+            예약 등록
+        </a>
+
+    </div>
 
 </div>
 
+
+<!-- =====================================================
+     SUMMARY CARDS
+====================================================== -->
 
 <div class="cards">
 
     <div class="card">
-        <small>전체 고객</small>
-        <strong>{{ total }}명</strong>
+
+        <div class="card-icon">
+            👥
+        </div>
+
+        <div class="card-content">
+
+            <small>전체 고객</small>
+
+            <strong>
+                {{ total }}
+                <span>명</span>
+            </strong>
+
+        </div>
+
+        <a href="{{ url_for('customers') }}">
+            고객관리 →
+        </a>
+
     </div>
 
-    <div class="card">
-        <small>오늘 등록 고객</small>
-        <strong class="red">{{ today_count }}명</strong>
-    </div>
 
     <div class="card">
-        <small>오늘 약속</small>
-        <strong>{{ today_bookings|length }}건</strong>
+
+        <div class="card-icon">
+            🆕
+        </div>
+
+        <div class="card-content">
+
+            <small>오늘 등록 고객</small>
+
+            <strong class="red">
+                {{ today_count }}
+                <span>명</span>
+            </strong>
+
+        </div>
+
+        <a href="{{ url_for('customers') }}">
+            고객관리 →
+        </a>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="card-icon">
+            📅
+        </div>
+
+        <div class="card-content">
+
+            <small>오늘 예약</small>
+
+            <strong>
+                {{ today_bookings|length }}
+                <span>건</span>
+            </strong>
+
+        </div>
+
+        <a href="{{ url_for('bookings') }}">
+            예약관리 →
+        </a>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="card-icon">
+            📱
+        </div>
+
+        <div class="card-content">
+
+            <small>오늘 개통</small>
+
+            <strong>
+                {{ today_sales }}
+                <span>건</span>
+            </strong>
+
+        </div>
+
+        <a href="{{ url_for('sales') }}">
+            개통조회 →
+        </a>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="card-icon">
+            📊
+        </div>
+
+        <div class="card-content">
+
+            <small>전체 개통</small>
+
+            <strong>
+                {{ total_sales }}
+                <span>건</span>
+            </strong>
+
+        </div>
+
+        <a href="{{ url_for('sales') }}">
+            전체조회 →
+        </a>
+
     </div>
 
 </div>
 
 
+<!-- =====================================================
+     QUICK WORK
+====================================================== -->
+
+<section class="quick-work">
+
+    <div class="section-title">
+
+        <div>
+            <h2>빠른 업무</h2>
+            <p>자주 사용하는 업무를 바로 실행하세요.</p>
+        </div>
+
+    </div>
+
+
+    <div class="quick-grid">
+
+        <a
+            href="{{ url_for('sale_new') }}"
+            class="quick-item main"
+        >
+
+            <div class="quick-icon">
+                📱
+            </div>
+
+            <div>
+                <strong>신규 개통 등록</strong>
+                <span>새로운 판매·개통건 등록</span>
+            </div>
+
+            <b>→</b>
+
+        </a>
+
+
+        <a
+            href="{{ url_for('customers') }}"
+            class="quick-item"
+        >
+
+            <div class="quick-icon">
+                👥
+            </div>
+
+            <div>
+                <strong>고객 관리</strong>
+                <span>고객 검색 및 정보 관리</span>
+            </div>
+
+            <b>→</b>
+
+        </a>
+
+
+        <a
+            href="{{ url_for('bookings') }}"
+            class="quick-item"
+        >
+
+            <div class="quick-icon">
+                📅
+            </div>
+
+            <div>
+                <strong>예약 관리</strong>
+                <span>방문예약 확인 및 등록</span>
+            </div>
+
+            <b>→</b>
+
+        </a>
+
+
+        <a
+            href="{{ url_for('sales') }}"
+            class="quick-item"
+        >
+
+            <div class="quick-icon">
+                🔎
+            </div>
+
+            <div>
+                <strong>개통건 조회</strong>
+                <span>판매·개통 내역 검색</span>
+            </div>
+
+            <b>→</b>
+
+        </a>
+
+    </div>
+
+</section>
+
+
+<!-- =====================================================
+     CALENDAR + TODAY APPOINTMENTS
+====================================================== -->
+
 <div class="calendar-layout">
 
 
+    <!-- CALENDAR -->
+
     <section class="calendar-box">
+
+        <div class="section-title">
+
+            <div>
+                <h2>예약 캘린더</h2>
+                <p>방문 예약 일정을 한눈에 확인하세요.</p>
+            </div>
+
+            <a href="{{ url_for('bookings') }}">
+                전체 예약 →
+            </a>
+
+        </div>
+
 
         <div class="calendar-top">
 
@@ -47,16 +309,20 @@
                 type="button"
                 onclick="changeMonth(-1)"
                 class="calendar-btn"
+                aria-label="이전 달"
             >
                 ‹
             </button>
 
+
             <h2 id="calendarTitle"></h2>
+
 
             <button
                 type="button"
                 onclick="changeMonth(1)"
                 class="calendar-btn"
+                aria-label="다음 달"
             >
                 ›
             </button>
@@ -83,16 +349,32 @@
         ></div>
 
 
-        <div class="calendar-legend">
+        <div class="calendar-footer">
 
-            <span class="legend-dot"></span>
-            예약 있음
+            <div class="calendar-legend">
+
+                <span class="legend-dot"></span>
+
+                예약 있음
+
+            </div>
+
+
+            <button
+                type="button"
+                class="today-button"
+                onclick="goToday()"
+            >
+                오늘
+            </button>
 
         </div>
 
     </section>
 
 
+
+    <!-- TODAY / SELECTED DATE -->
 
     <section class="today-box">
 
@@ -109,7 +391,7 @@
             </div>
 
             <a href="{{ url_for('bookings') }}">
-                전체 예약 →
+                예약관리 →
             </a>
 
         </div>
@@ -126,11 +408,21 @@
 
 
 
+<!-- =====================================================
+     RECENT CUSTOMERS
+====================================================== -->
+
 <section class="recent-box">
 
     <div class="section-title">
 
-        <h2>최근 등록 고객</h2>
+        <div>
+
+            <h2>최근 등록 고객</h2>
+
+            <p>최근 등록된 고객을 확인합니다.</p>
+
+        </div>
 
         <a href="{{ url_for('customers') }}">
             고객 전체보기 →
@@ -139,71 +431,160 @@
     </div>
 
 
-    <table>
+    <div class="table-wrap">
 
-        <tr>
+        <table>
 
-            <th>고객</th>
-            <th>연락처</th>
-            <th>기종</th>
-            <th>통신사</th>
-            <th>상태</th>
+            <thead>
 
-        </tr>
+                <tr>
+
+                    <th>고객</th>
+
+                    <th>연락처</th>
+
+                    <th>기종</th>
+
+                    <th>통신사</th>
+
+                    <th>상태</th>
+
+                </tr>
+
+            </thead>
 
 
-        {% for c in recent %}
+            <tbody>
 
-        <tr>
+                {% for c in recent %}
 
-            <td>
-                <b>{{ c.name }}</b>
-            </td>
+                <tr>
 
-            <td>
-                {{ c.phone or '-' }}
-            </td>
+                    <td>
 
-            <td>
-                {{ c.device or '-' }}
-            </td>
+                        <div class="customer-cell">
 
-            <td>
-                {{ c.carrier or '-' }}
-            </td>
+                            <span class="customer-avatar">
+                                {{ c.name[:1] }}
+                            </span>
 
-            <td>
-                {{ c.status }}
-            </td>
+                            <strong>
+                                {{ c.name }}
+                            </strong>
 
-        </tr>
+                        </div>
 
-        {% else %}
+                    </td>
 
-        <tr>
 
-            <td colspan="5">
-                등록된 고객이 없습니다.
-            </td>
+                    <td>
+                        {{ c.phone or '-' }}
+                    </td>
 
-        </tr>
 
-        {% endfor %}
+                    <td>
+                        {{ c.device or '-' }}
+                    </td>
 
-    </table>
+
+                    <td>
+                        {{ c.carrier or '-' }}
+                    </td>
+
+
+                    <td>
+
+                        <span
+                            class="status-badge
+                            {% if c.status == '상담중' %}
+                                waiting
+                            {% elif c.status == '개통완료' %}
+                                complete
+                            {% elif c.status == '예약' %}
+                                reserved
+                            {% endif %}"
+                        >
+                            {{ c.status }}
+                        </span>
+
+                    </td>
+
+                </tr>
+
+
+                {% else %}
+
+                <tr>
+
+                    <td
+                        colspan="5"
+                        class="empty-table"
+                    >
+                        등록된 고객이 없습니다.
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
 
 </section>
 
 
+
+<!-- =====================================================
+     BUSINESS GUIDE
+====================================================== -->
+
+<section class="dashboard-guide">
+
+    <div class="guide-icon">
+        💡
+    </div>
+
+    <div>
+
+        <strong>
+            오늘도 고무신모바일 업무를 한곳에서 관리하세요.
+        </strong>
+
+        <p>
+            고객관리부터 예약, 신규개통, 개통건 조회까지
+            매장 업무를 빠르게 처리할 수 있습니다.
+        </p>
+
+    </div>
+
+</section>
+```
+
+</div>
+
+<!-- =========================================================
+     JAVASCRIPT
+========================================================= -->
+
 <script>
 
-const bookingData = {{ calendar_bookings | tojson }};
+const bookingData =
+    {{ calendar_bookings | tojson }};
+
 
 const now = new Date();
 
-let currentYear = now.getFullYear();
 
-let currentMonth = now.getMonth();
+let currentYear =
+    now.getFullYear();
+
+
+let currentMonth =
+    now.getMonth();
+
 
 let selectedDate =
     now.getFullYear() +
@@ -213,7 +594,16 @@ let selectedDate =
     String(now.getDate()).padStart(2, "0");
 
 
-function makeDateString(year, month, day) {
+
+/* =========================================================
+   DATE STRING
+========================================================= */
+
+function makeDateString(
+    year,
+    month,
+    day
+) {
 
     return (
         year +
@@ -226,13 +616,25 @@ function makeDateString(year, month, day) {
 }
 
 
-function formatKoreanDate(dateString) {
 
-    const parts = dateString.split("-");
+/* =========================================================
+   KOREAN DATE
+========================================================= */
+
+function formatKoreanDate(
+    dateString
+) {
+
+    const parts =
+        dateString.split("-");
+
 
     if (parts.length !== 3) {
+
         return dateString;
+
     }
+
 
     return (
         parts[0] +
@@ -246,26 +648,86 @@ function formatKoreanDate(dateString) {
 }
 
 
-function getBookingsForDate(dateString) {
 
-    return bookingData.filter(function(booking) {
+/* =========================================================
+   DAY OF WEEK
+========================================================= */
 
-        const visitDate = booking.visit_date || "";
+function getKoreanDay(
+    dateString
+) {
 
-        return visitDate.substring(0, 10) === dateString;
+    const date =
+        new Date(
+            dateString +
+            "T00:00:00"
+        );
 
-    });
+
+    const days = [
+        "일",
+        "월",
+        "화",
+        "수",
+        "목",
+        "금",
+        "토"
+    ];
+
+
+    return days[
+        date.getDay()
+    ];
 
 }
 
 
+
+/* =========================================================
+   GET BOOKINGS
+========================================================= */
+
+function getBookingsForDate(
+    dateString
+) {
+
+    return bookingData.filter(
+        function(booking) {
+
+            const visitDate =
+                booking.visit_date || "";
+
+
+            return (
+                visitDate.substring(
+                    0,
+                    10
+                ) === dateString
+            );
+
+        }
+    );
+
+}
+
+
+
+/* =========================================================
+   RENDER CALENDAR
+========================================================= */
+
 function renderCalendar() {
 
     const calendar =
-        document.getElementById("calendar");
+        document.getElementById(
+            "calendar"
+        );
+
 
     const title =
-        document.getElementById("calendarTitle");
+        document.getElementById(
+            "calendarTitle"
+        );
 
 
     title.textContent =
@@ -302,6 +764,8 @@ function renderCalendar() {
         ).getDate();
 
 
+    /* 이전 달 */
+
     for (
         let i = firstDay - 1;
         i >= 0;
@@ -311,19 +775,29 @@ function renderCalendar() {
         const day =
             previousLastDate - i;
 
+
         const cell =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         cell.className =
             "calendar-day other-month";
 
-        cell.textContent =
-            day;
 
-        calendar.appendChild(cell);
+        cell.innerHTML =
+            `<span class="day-number">${day}</span>`;
+
+
+        calendar.appendChild(
+            cell
+        );
 
     }
 
+
+    /* 현재 달 */
 
     for (
         let day = 1;
@@ -340,22 +814,32 @@ function renderCalendar() {
 
 
         const cell =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         cell.className =
             "calendar-day";
 
 
         const number =
-            document.createElement("span");
+            document.createElement(
+                "span"
+            );
+
 
         number.className =
             "day-number";
 
+
         number.textContent =
             day;
 
-        cell.appendChild(number);
+
+        cell.appendChild(
+            number
+        );
 
 
         const todayString =
@@ -366,19 +850,35 @@ function renderCalendar() {
             );
 
 
-        if (dateString === todayString) {
+        /* 오늘 */
 
-            cell.classList.add("today");
+        if (
+            dateString ===
+            todayString
+        ) {
+
+            cell.classList.add(
+                "today"
+            );
 
         }
 
 
-        if (dateString === selectedDate) {
+        /* 선택 날짜 */
 
-            cell.classList.add("selected");
+        if (
+            dateString ===
+            selectedDate
+        ) {
+
+            cell.classList.add(
+                "selected"
+            );
 
         }
 
+
+        /* 예약 */
 
         const dayBookings =
             getBookingsForDate(
@@ -386,47 +886,76 @@ function renderCalendar() {
             );
 
 
-        if (dayBookings.length > 0) {
+        if (
+            dayBookings.length > 0
+        ) {
+
+            cell.classList.add(
+                "has-booking"
+            );
+
 
             const dot =
-                document.createElement("span");
+                document.createElement(
+                    "span"
+                );
+
 
             dot.className =
                 "booking-dot";
 
-            cell.appendChild(dot);
+
+            cell.appendChild(
+                dot
+            );
 
 
             const count =
-                document.createElement("small");
+                document.createElement(
+                    "small"
+                );
+
 
             count.className =
                 "booking-count";
 
-            count.textContent =
-                dayBookings.length + "건";
 
-            cell.appendChild(count);
+            count.textContent =
+                dayBookings.length +
+                "건";
+
+
+            cell.appendChild(
+                count
+            );
 
         }
 
 
-        cell.onclick = function() {
+        /* 클릭 */
 
-            selectedDate =
-                dateString;
+        cell.onclick =
+            function() {
 
-            renderCalendar();
-
-            renderAppointments();
-
-        };
+                selectedDate =
+                    dateString;
 
 
-        calendar.appendChild(cell);
+                renderCalendar();
+
+                renderAppointments();
+
+            };
+
+
+        calendar.appendChild(
+            cell
+        );
 
     }
 
+
+    /* 다음 달 */
 
     const totalCells =
         firstDay +
@@ -436,7 +965,10 @@ function renderCalendar() {
     const remaining =
         totalCells % 7 === 0
         ? 0
-        : 7 - (totalCells % 7);
+        : 7 -
+          (
+              totalCells % 7
+          );
 
 
     for (
@@ -446,20 +978,32 @@ function renderCalendar() {
     ) {
 
         const cell =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         cell.className =
             "calendar-day other-month";
 
-        cell.textContent =
-            day;
 
-        calendar.appendChild(cell);
+        cell.innerHTML =
+            `<span class="day-number">${day}</span>`;
+
+
+        calendar.appendChild(
+            cell
+        );
 
     }
 
 }
 
+
+
+/* =========================================================
+   RENDER APPOINTMENTS
+========================================================= */
 
 function renderAppointments() {
 
@@ -468,10 +1012,12 @@ function renderAppointments() {
             "appointmentList"
         );
 
+
     const title =
         document.getElementById(
             "selectedDateTitle"
         );
+
 
     const count =
         document.getElementById(
@@ -493,20 +1039,43 @@ function renderAppointments() {
 
     count.textContent =
         appointments.length +
-        "건의 약속";
+        "건의 예약";
 
 
     list.innerHTML = "";
 
 
-    if (appointments.length === 0) {
+    /* 예약 없음 */
+
+    if (
+        appointments.length === 0
+    ) {
 
         list.innerHTML = `
+
             <div class="no-appointment">
-                <div>📭</div>
-                <strong>등록된 약속이 없습니다.</strong>
-                <p>이 날짜에는 처리할 예약이 없습니다.</p>
+
+                <div class="no-appointment-icon">
+                    📭
+                </div>
+
+                <strong>
+                    등록된 예약이 없습니다.
+                </strong>
+
+                <p>
+                    이 날짜에는 처리할 예약이 없습니다.
+                </p>
+
+                <a
+                    href="{{ url_for('bookings') }}"
+                    class="small-action"
+                >
+                    예약 등록하기
+                </a>
+
             </div>
+
         `;
 
         return;
@@ -514,144 +1083,215 @@ function renderAppointments() {
     }
 
 
-    appointments.forEach(function(booking) {
+    /* 예약 출력 */
 
-        const item =
-            document.createElement("div");
-
-        item.className =
-            "appointment";
+    appointments.forEach(
+        function(booking) {
 
 
-        const visitDate =
-            booking.visit_date || "";
+            const item =
+                document.createElement(
+                    "div"
+                );
 
 
-        let visitTime = "";
+            item.className =
+                "appointment";
 
 
-        if (visitDate.length > 10) {
+            const visitDate =
+                booking.visit_date || "";
 
-            visitTime =
-                visitDate.substring(11);
+
+            let visitTime = "";
+
+
+            if (
+                visitDate.length > 10
+            ) {
+
+                visitTime =
+                    visitDate.substring(
+                        11,
+                        16
+                    );
+
+            }
+
+
+            const name =
+                booking.name ||
+                "예약자 없음";
+
+
+            const phone =
+                booking.phone ||
+                "-";
+
+
+            const device =
+                booking.device ||
+                "기종 미정";
+
+
+            const memo =
+                booking.memo ||
+                "";
+
+
+            /* 상단 */
+
+            const top =
+                document.createElement(
+                    "div"
+                );
+
+
+            top.className =
+                "appointment-top";
+
+
+            const customerName =
+                document.createElement(
+                    "strong"
+                );
+
+
+            customerName.textContent =
+                name;
+
+
+            const time =
+                document.createElement(
+                    "span"
+                );
+
+
+            time.className =
+                "appointment-time";
+
+
+            time.textContent =
+                visitTime ||
+                "시간 미정";
+
+
+            top.appendChild(
+                customerName
+            );
+
+
+            top.appendChild(
+                time
+            );
+
+
+            /* 정보 */
+
+            const info =
+                document.createElement(
+                    "div"
+                );
+
+
+            info.className =
+                "appointment-info";
+
+
+            const phoneDiv =
+                document.createElement(
+                    "div"
+                );
+
+
+            phoneDiv.textContent =
+                "📞 " +
+                phone;
+
+
+            const deviceDiv =
+                document.createElement(
+                    "div"
+                );
+
+
+            deviceDiv.textContent =
+                "📱 " +
+                device;
+
+
+            info.appendChild(
+                phoneDiv
+            );
+
+
+            info.appendChild(
+                deviceDiv
+            );
+
+
+            item.appendChild(
+                top
+            );
+
+
+            item.appendChild(
+                info
+            );
+
+
+            /* 메모 */
+
+            if (memo) {
+
+                const memoDiv =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                memoDiv.className =
+                    "appointment-memo";
+
+
+                memoDiv.textContent =
+                    memo;
+
+
+                item.appendChild(
+                    memoDiv
+                );
+
+            }
+
+
+            list.appendChild(
+                item
+            );
 
         }
-
-
-        const name =
-            booking.name ||
-            "예약자 없음";
-
-
-        const phone =
-            booking.phone ||
-            "-";
-
-
-        const device =
-            booking.device ||
-            "기종 미정";
-
-
-        const memo =
-            booking.memo ||
-            "";
-
-
-        item.innerHTML = "";
-
-
-        const top =
-            document.createElement("div");
-
-        top.className =
-            "appointment-top";
-
-
-        const customerName =
-            document.createElement("strong");
-
-        customerName.textContent =
-            name;
-
-
-        const time =
-            document.createElement("span");
-
-        time.className =
-            "appointment-time";
-
-        time.textContent =
-            visitTime ||
-            "시간 미정";
-
-
-        top.appendChild(customerName);
-
-        top.appendChild(time);
-
-
-        const info =
-            document.createElement("div");
-
-        info.className =
-            "appointment-info";
-
-
-        const phoneDiv =
-            document.createElement("div");
-
-        phoneDiv.textContent =
-            "📞 " + phone;
-
-
-        const deviceDiv =
-            document.createElement("div");
-
-        deviceDiv.textContent =
-            "📱 " + device;
-
-
-        info.appendChild(phoneDiv);
-
-        info.appendChild(deviceDiv);
-
-
-        item.appendChild(top);
-
-        item.appendChild(info);
-
-
-        if (memo) {
-
-            const memoDiv =
-                document.createElement("div");
-
-            memoDiv.className =
-                "appointment-memo";
-
-            memoDiv.textContent =
-                memo;
-
-            item.appendChild(memoDiv);
-
-        }
-
-
-        list.appendChild(item);
-
-    });
+    );
 
 }
 
 
-function changeMonth(amount) {
+
+/* =========================================================
+   MONTH CHANGE
+========================================================= */
+
+function changeMonth(
+    amount
+) {
 
     currentMonth =
-        currentMonth + amount;
+        currentMonth +
+        amount;
 
 
-    if (currentMonth < 0) {
+    if (
+        currentMonth < 0
+    ) {
 
         currentMonth = 11;
 
@@ -660,7 +1300,9 @@ function changeMonth(amount) {
     }
 
 
-    if (currentMonth > 11) {
+    if (
+        currentMonth > 11
+    ) {
 
         currentMonth = 0;
 
@@ -674,6 +1316,41 @@ function changeMonth(amount) {
 }
 
 
+
+/* =========================================================
+   GO TODAY
+========================================================= */
+
+function goToday() {
+
+    currentYear =
+        now.getFullYear();
+
+
+    currentMonth =
+        now.getMonth();
+
+
+    selectedDate =
+        makeDateString(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate()
+        );
+
+
+    renderCalendar();
+
+    renderAppointments();
+
+}
+
+
+
+/* =========================================================
+   TODAY TEXT
+========================================================= */
+
 document.getElementById(
     "todayText"
 ).textContent =
@@ -683,8 +1360,21 @@ document.getElementById(
     (now.getMonth() + 1) +
     "월 " +
     now.getDate() +
-    "일";
+    "일 " +
+    getKoreanDay(
+        makeDateString(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate()
+        )
+    ) +
+    "요일";
 
+
+
+/* =========================================================
+   INITIALIZE
+========================================================= */
 
 renderCalendar();
 

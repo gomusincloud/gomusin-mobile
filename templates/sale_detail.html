@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.detail{max-width:1200px;margin:0 auto;padding:20px}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.actions{display:flex;gap:8px}.btnx{padding:10px 15px;border-radius:8px;text-decoration:none;font-weight:700}.main{background:#111;color:#fff}.sub{background:#f1eee6;color:#222}
+.card{background:#fff;border:1px solid #e4e0d5;border-radius:14px;padding:18px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.item{border-bottom:1px solid #eee;padding-bottom:8px}.label{font-size:12px;color:#888}.value{font-weight:700;margin-top:3px;white-space:pre-wrap}
+.note{white-space:pre-wrap;line-height:1.6}
+@media(max-width:850px){.grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+
+<div class="detail">
+  <div class="head">
+    <div>
+      <h1>개통건 #{{ sale.id }}</h1>
+      <p>{{ sale.sale_date }} · {{ sale.customer_name }} · {{ sale.device or '기종 미입력' }}</p>
+    </div>
+    <div class="actions">
+      <a class="btnx sub" href="{{ url_for('sales') }}">목록</a>
+      <a class="btnx main" href="{{ url_for('sale_edit', sale_id=sale.id) }}">수정</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>고객 / 개통 정보</h2>
+    <div class="grid">
+      {% for label,value in [
+        ('고객명',sale.customer_name),('연락처',sale.customer_phone),('판매구분',sale.sale_kind),
+        ('내방유형',sale.visit_type),('판매자',sale.seller),('통신사',sale.carrier),
+        ('가입유형',sale.signup_type),('기종',sale.device),('일련번호',sale.serial_number),
+        ('청약점',sale.contract_store),('개통번호',sale.activation_number),('신/M/보',sale.new_m_existing),
+        ('현/할',sale.payment_type),('할부원금',('{:,}원'.format(sale.installment_principal or 0))),
+        ('요금제',sale.plan)
+      ] %}
+      <div class="item"><div class="label">{{ label }}</div><div class="value">{{ value or '-' }}</div></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>부가서비스 / 인터넷 / 결합</h2>
+    <div class="grid">
+      <div class="item"><div class="label">부가서비스</div><div class="value">{{ sale.addon_text or '-' }}</div></div>
+      <div class="item"><div class="label">인터넷/TV</div><div class="value">{{ sale.internet_plan or '-' }}</div></div>
+      <div class="item"><div class="label">결합</div><div class="value">{{ sale.combination_text or '-' }}</div></div>
+      <div class="item"><div class="label">사은품 상태</div><div class="value">{{ sale.gift_status }}</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>정산</h2>
+    <div class="grid">
+      {% for label,value in [
+        ('R/B',sale.rebate),('구두',sale.verbal),('차감',sale.deduction),
+        ('할부프리',sale.installment_free),('현금개통',sale.cash_activation),
+        ('유심비',sale.usim_fee),('수수료',sale.commission),('정산',sale.settlement),
+        ('부가세',sale.vat_amount),('위약금/페이백',sale.penalty_payback),
+        ('중고폰/고객현금',sale.used_phone_cash),('사은품',sale.gift_cost),
+        ('퀵비',sale.quick_cost),('마진',sale.margin)
+      ] %}
+      <div class="item"><div class="label">{{ label }}</div><div class="value">{{ "{:,}".format(value or 0) }}원</div></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>업무 기록</h2>
+    <div class="grid">
+      <div class="item"><div class="label">서류</div><div class="value">{{ sale.docs_status }}</div></div>
+      <div class="item"><div class="label">부가서비스</div><div class="value">{{ sale.addon_status }}</div></div>
+      <div class="item"><div class="label">결합</div><div class="value">{{ sale.combination_status }}</div></div>
+      <div class="item"><div class="label">사후관리</div><div class="value">{{ sale.aftercare_status }}</div></div>
+    </div>
+    <hr>
+    <h3>고객약속</h3><div class="note">{{ sale.customer_promise or '-' }}</div>
+    <h3>판매내용</h3><div class="note">{{ sale.sales_note or '-' }}</div>
+    <h3>정책/차감내역</h3><div class="note">{{ sale.policy_note or '-' }}</div>
+    <h3>복지확인</h3><div class="note">{{ sale.welfare_note or '-' }}</div>
+    <h3>중고폰</h3><div class="note">{{ sale.used_phone_note or '-' }}</div>
+  </div>
+
+  {% if session.get('role') == 'admin' %}
+  <div class="actions">
+    <form method="post" action="{{ url_for('sale_delete', sale_id=sale.id) }}" onsubmit="return confirm('이 개통건을 삭제하시겠습니까?')">
+      <button class="btnx sub" type="submit">개통건 삭제</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

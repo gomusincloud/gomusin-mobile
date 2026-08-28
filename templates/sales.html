@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.list-wrap{max-width:1350px;margin:0 auto;padding:20px}
+.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+.filters{background:#fff;border:1px solid #e4e0d5;border-radius:14px;padding:15px;display:flex;gap:10px;flex-wrap:wrap}
+.filters input{padding:10px;border:1px solid #d7d2c6;border-radius:8px}
+.btnx{border:0;border-radius:8px;padding:10px 16px;text-decoration:none;font-weight:700;display:inline-block}
+.main{background:#111;color:#fff}.sub{background:#f1eee6;color:#222}
+.stats{display:flex;gap:12px;margin:15px 0}.stat{background:#fff;border:1px solid #e4e0d5;border-radius:12px;padding:13px 18px}.stat b{display:block;font-size:20px}
+.table-wrap{overflow:auto;background:#fff;border:1px solid #e4e0d5;border-radius:14px}
+table{width:100%;border-collapse:collapse;min-width:1100px}
+th,td{padding:11px 10px;border-bottom:1px solid #eee;text-align:left;white-space:nowrap}
+th{background:#f8f6f0;font-size:13px}
+.money{text-align:right}
+.badge{padding:4px 8px;border-radius:20px;background:#f1eee6;font-size:12px}
+</style>
+
+<div class="list-wrap">
+  <div class="head">
+    <div>
+      <h1>개통건 조회</h1>
+      <p>등록된 판매/개통건을 검색하고 상세 내용을 확인합니다.</p>
+    </div>
+    <a class="btnx main" href="{{ url_for('sale_new') }}">＋ 신규 개통 등록</a>
+  </div>
+
+  <form class="filters" method="get">
+    <input name="q" value="{{ q }}" placeholder="고객명 / 전화번호 / 기종 / 개통번호">
+    <input type="date" name="sale_date" value="{{ sale_date }}">
+    <input name="seller" value="{{ seller }}" placeholder="판매자">
+    <button class="btnx sub" type="submit">검색</button>
+    <a class="btnx sub" href="{{ url_for('sales') }}">초기화</a>
+  </form>
+
+  <div class="stats">
+    <div class="stat"><span>조회 건수</span><b>{{ sales|length }}건</b></div>
+    <div class="stat"><span>정산 합계</span><b>{{ "{:,}".format(total_settlement) }}원</b></div>
+    <div class="stat"><span>마진 합계</span><b>{{ "{:,}".format(total_margin) }}원</b></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>날짜</th><th>고객</th><th>연락처</th><th>구분</th><th>통신사</th>
+          <th>가입유형</th><th>기종</th><th>요금제</th><th>판매자</th>
+          <th>정산</th><th>마진</th><th>사후관리</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for s in sales %}
+        <tr>
+          <td>{{ s.sale_date }}</td>
+          <td><b>{{ s.customer_name }}</b></td>
+          <td>{{ s.customer_phone or '-' }}</td>
+          <td><span class="badge">{{ s.sale_kind }}</span></td>
+          <td>{{ s.carrier or '-' }}</td>
+          <td>{{ s.signup_type or '-' }}</td>
+          <td>{{ s.device or '-' }}</td>
+          <td>{{ s.plan or '-' }}</td>
+          <td>{{ s.seller or '-' }}</td>
+          <td class="money">{{ "{:,}".format(s.settlement or 0) }}원</td>
+          <td class="money">{{ "{:,}".format(s.margin or 0) }}원</td>
+          <td>{{ s.aftercare_status or '-' }}</td>
+          <td><a class="btnx sub" href="{{ url_for('sale_detail', sale_id=s.id) }}">상세</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="13" style="text-align:center;padding:40px">등록된 개통건이 없습니다.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

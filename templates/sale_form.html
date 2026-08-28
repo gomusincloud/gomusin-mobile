@@ -3,27 +3,42 @@
 {% block content %}
 
 <style>
+    * {
+        box-sizing: border-box;
+    }
+
     .sale-page {
         max-width: 1250px;
         margin: 0 auto;
-        padding-bottom: 60px;
+        padding: 10px 0 60px;
     }
+
+    /* =========================
+       상단
+    ========================= */
 
     .sale-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 20px;
         margin-bottom: 24px;
+    }
+
+    .sale-header-left {
+        min-width: 0;
     }
 
     .sale-header h1 {
         margin: 0;
         font-size: 28px;
+        font-weight: 800;
         color: #111;
+        letter-spacing: -0.5px;
     }
 
     .sale-header p {
-        margin: 7px 0 0;
+        margin: 8px 0 0;
         color: #777;
         font-size: 14px;
     }
@@ -31,51 +46,64 @@
     .back-btn {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 6px;
-        padding: 10px 16px;
+        height: 42px;
+        padding: 0 16px;
         border: 1px solid #ddd;
-        border-radius: 8px;
+        border-radius: 9px;
         background: #fff;
         color: #333;
         text-decoration: none;
         font-size: 14px;
+        font-weight: 700;
+        white-space: nowrap;
     }
 
     .back-btn:hover {
         background: #f7f7f7;
     }
 
+    /* =========================
+       카드
+    ========================= */
+
     .form-card {
         background: #fff;
-        border: 1px solid #e5e5e5;
+        border: 1px solid #e5e7eb;
         border-radius: 14px;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
     }
 
     .section-title {
         display: flex;
         align-items: center;
-        padding: 17px 22px;
+        gap: 8px;
+        min-height: 56px;
+        padding: 15px 22px;
         background: #f8f9fb;
-        border-bottom: 1px solid #e5e5e5;
+        border-bottom: 1px solid #e5e7eb;
         font-size: 17px;
-        font-weight: 700;
-        color: #222;
+        font-weight: 800;
+        color: #111;
     }
 
-    .section-title .icon {
-        margin-right: 8px;
-        font-size: 18px;
+    .section-icon {
+        width: 30px;
+        height: 30px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: #fff;
+        font-size: 16px;
     }
 
-    .section-title small {
-        margin-left: 10px;
-        color: #888;
-        font-size: 12px;
-        font-weight: 400;
-    }
+    /* =========================
+       폼
+    ========================= */
 
     .form-grid {
         display: grid;
@@ -95,13 +123,9 @@
         grid-column: 1 / -1;
     }
 
-    .form-group.third {
-        grid-column: span 1;
-    }
-
     .form-group label {
-        font-size: 14px;
-        font-weight: 700;
+        font-size: 13px;
+        font-weight: 800;
         color: #333;
     }
 
@@ -112,42 +136,63 @@
 
     .form-control {
         width: 100%;
-        height: 44px;
-        box-sizing: border-box;
+        height: 45px;
         padding: 0 13px;
-        border: 1px solid #d8dce2;
+        border: 1px solid #d7dbe2;
         border-radius: 8px;
         background: #fff;
-        font-size: 14px;
         color: #222;
+        font-size: 14px;
         outline: none;
-        transition: border-color .15s, box-shadow .15s;
+        transition:
+            border-color .15s,
+            box-shadow .15s,
+            background .15s;
+    }
+
+    .form-control::placeholder {
+        color: #aaa;
+    }
+
+    .form-control:hover {
+        border-color: #bfc4cc;
     }
 
     .form-control:focus {
         border-color: #222;
-        box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, .06);
+    }
+
+    select.form-control {
+        cursor: pointer;
     }
 
     textarea.form-control {
-        height: 120px;
+        min-height: 130px;
+        height: 130px;
         padding: 12px 13px;
         resize: vertical;
         line-height: 1.6;
     }
 
     .help-text {
-        color: #888;
+        color: #8a8f98;
         font-size: 12px;
+        line-height: 1.5;
     }
+
+    /* =========================
+       금액
+    ========================= */
 
     .money-wrap {
         position: relative;
     }
 
     .money-wrap .form-control {
-        padding-right: 35px;
+        padding-right: 38px;
         text-align: right;
+        font-weight: 700;
     }
 
     .money-unit {
@@ -160,145 +205,76 @@
         pointer-events: none;
     }
 
+    /* =========================
+       금액 요약
+    ========================= */
+
+    .price-summary {
+        margin: 0 22px 22px;
+        padding: 18px;
+        border: 1px solid #e7e9ed;
+        border-radius: 10px;
+        background: #fafafa;
+    }
+
+    .price-summary-title {
+        margin-bottom: 13px;
+        font-size: 13px;
+        font-weight: 800;
+        color: #555;
+    }
+
+    .price-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .summary-item {
+        padding: 13px;
+        background: #fff;
+        border: 1px solid #e7e9ed;
+        border-radius: 8px;
+    }
+
+    .summary-label {
+        display: block;
+        margin-bottom: 5px;
+        color: #888;
+        font-size: 11px;
+    }
+
+    .summary-value {
+        display: block;
+        color: #111;
+        font-size: 16px;
+        font-weight: 800;
+    }
+
+    /* =========================
+       안내
+    ========================= */
+
     .notice {
         margin: 0 22px 22px;
         padding: 13px 15px;
         background: #f5f7fa;
         border-radius: 8px;
         color: #666;
-        font-size: 13px;
-        line-height: 1.6;
-    }
-
-    .notice strong {
-        color: #333;
-    }
-
-    /* 체크박스 */
-    .check-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-    }
-
-    .check-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        min-height: 42px;
-        padding: 0 13px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        background: #fff;
-        cursor: pointer;
-        font-size: 13px;
-    }
-
-    .check-item:hover {
-        background: #f8f8f8;
-    }
-
-    .check-item input {
-        margin: 0;
-    }
-
-    /* 부가서비스 */
-    .service-box {
-        border: 1px solid #e1e4e8;
-        border-radius: 10px;
-        padding: 16px;
-        background: #fafbfc;
-    }
-
-    .service-row {
-        display: grid;
-        grid-template-columns: 1.5fr 1fr 1fr auto;
-        gap: 10px;
-        align-items: end;
-        margin-bottom: 10px;
-    }
-
-    .service-row:last-child {
-        margin-bottom: 0;
-    }
-
-    .remove-service {
-        height: 44px;
-        padding: 0 14px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        background: #fff;
-        cursor: pointer;
-        color: #555;
-    }
-
-    .remove-service:hover {
-        background: #f3f3f3;
-    }
-
-    .add-service {
-        margin-top: 12px;
-        height: 40px;
-        padding: 0 15px;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        background: #fff;
-        cursor: pointer;
-        font-weight: 600;
-    }
-
-    /* 사은품 */
-    .gift-row {
-        display: grid;
-        grid-template-columns: 1.5fr 1fr auto;
-        gap: 10px;
-        align-items: end;
-        margin-bottom: 10px;
-    }
-
-    /* 금액 강조 */
-    .total-box {
-        margin: 0 22px 22px;
-        padding: 18px;
-        border-radius: 10px;
-        background: #f3f5f7;
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
-    }
-
-    .total-item {
-        background: #fff;
-        border-radius: 9px;
-        padding: 15px;
-        border: 1px solid #e5e5e5;
-    }
-
-    .total-item .label {
-        color: #777;
         font-size: 12px;
-        margin-bottom: 7px;
+        line-height: 1.7;
     }
 
-    .total-item .value {
-        font-size: 20px;
-        font-weight: 800;
-        color: #111;
-    }
+    /* =========================
+       버튼
+    ========================= */
 
-    .total-item .unit {
-        font-size: 12px;
-        font-weight: 400;
-        color: #777;
-        margin-left: 2px;
-    }
-
-    /* 버튼 */
     .bottom-actions {
         display: flex;
         justify-content: flex-end;
+        align-items: center;
         gap: 10px;
-        margin-top: 10px;
+        margin-top: 6px;
     }
 
     .btn-cancel,
@@ -306,21 +282,25 @@
         min-width: 130px;
         height: 48px;
         padding: 0 24px;
-        border-radius: 8px;
-        font-size: 15px;
-        font-weight: 700;
+        border-radius: 9px;
+        font-size: 14px;
+        font-weight: 800;
         cursor: pointer;
         text-decoration: none;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        box-sizing: border-box;
+        transition: .15s;
     }
 
     .btn-cancel {
         background: #fff;
         color: #333;
-        border: 1px solid #d8dce2;
+        border: 1px solid #d7dbe2;
+    }
+
+    .btn-cancel:hover {
+        background: #f7f7f7;
     }
 
     .btn-submit {
@@ -333,15 +313,23 @@
         background: #333;
     }
 
+    .btn-submit:disabled {
+        opacity: .6;
+        cursor: not-allowed;
+    }
+
+    /* =========================
+       모바일
+    ========================= */
+
     @media (max-width: 800px) {
 
         .sale-page {
-            padding: 0 10px 40px;
+            padding: 5px 10px 40px;
         }
 
         .sale-header {
             align-items: flex-start;
-            gap: 12px;
         }
 
         .sale-header h1 {
@@ -351,6 +339,7 @@
         .form-grid {
             grid-template-columns: 1fr;
             padding: 16px;
+            gap: 15px;
         }
 
         .form-group.full {
@@ -358,23 +347,18 @@
         }
 
         .section-title {
-            padding: 15px 16px;
+            padding: 14px 16px;
         }
 
         .notice {
             margin: 0 16px 16px;
         }
 
-        .total-box {
+        .price-summary {
             margin: 0 16px 16px;
-            grid-template-columns: 1fr;
         }
 
-        .service-row {
-            grid-template-columns: 1fr;
-        }
-
-        .gift-row {
+        .price-summary-grid {
             grid-template-columns: 1fr;
         }
 
@@ -387,22 +371,46 @@
             width: 100%;
         }
     }
+
+    @media (max-width: 520px) {
+
+        .sale-header {
+            flex-direction: column;
+        }
+
+        .back-btn {
+            width: 100%;
+        }
+    }
 </style>
 
 
 <div class="sale-page">
 
-    <!-- ==================================================
-         제목
-    ================================================== -->
+    <!-- =====================================================
+         페이지 제목
+    ====================================================== -->
 
     <div class="sale-header">
 
-        <div>
-            <h1>신규개통 등록</h1>
+        <div class="sale-header-left">
+
+            <h1>
+                {% if sale %}
+                    개통정보 수정
+                {% else %}
+                    신규개통 등록
+                {% endif %}
+            </h1>
+
             <p>
-                신규개통 및 판매 고객의 실제 업무 정보를 등록합니다.
+                {% if sale %}
+                    등록된 개통 정보를 수정합니다.
+                {% else %}
+                    신규 개통 고객의 개통 정보를 등록합니다.
+                {% endif %}
             </p>
+
         </div>
 
         <a
@@ -415,1123 +423,798 @@
     </div>
 
 
-    <!-- ==================================================
-         1. 고객 기본정보
-    ================================================== -->
-
-    <div class="form-card">
-
-        <div class="section-title">
-            <span class="icon">👤</span>
-            고객 기본정보
-            <small>고객 및 연락처 정보</small>
-        </div>
-
-        <div class="form-grid">
-
-            <div class="form-group">
-
-                <label>
-                    고객명
-                    <span class="required">*</span>
-                </label>
-
-                <input
-                    type="text"
-                    name="customer_name"
-                    class="form-control"
-                    placeholder="고객명을 입력하세요"
-                    required
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>고객 연락처</label>
-
-                <input
-                    type="tel"
-                    name="customer_phone"
-                    class="form-control"
-                    placeholder="010-0000-0000"
-                    maxlength="13"
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>생년월일</label>
-
-                <input
-                    type="text"
-                    name="birth_date"
-                    class="form-control"
-                    placeholder="예: 900101"
-                    maxlength="8"
-                    form="saleForm"
-                >
-
-                <span class="help-text">
-                    주민번호 전체가 아닌 생년월일만 입력하세요.
-                </span>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>고객 구분</label>
-
-                <select
-                    name="customer_type"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="">선택</option>
-                    <option value="신규고객">신규고객</option>
-                    <option value="기존고객">기존고객</option>
-                    <option value="단골고객">단골고객</option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group full">
-
-                <label>주소</label>
-
-                <input
-                    type="text"
-                    name="address"
-                    class="form-control"
-                    placeholder="주소를 입력하세요"
-                    form="saleForm"
-                >
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- ==================================================
-         2. 개통 기본정보
-    ================================================== -->
-
-    <div class="form-card">
-
-        <div class="section-title">
-            <span class="icon">📱</span>
-            개통 기본정보
-            <small>통신사 및 개통 유형</small>
-        </div>
-
-        <div class="form-grid">
-
-            <div class="form-group">
-
-                <label>
-                    개통일
-                    <span class="required">*</span>
-                </label>
-
-                <input
-                    type="date"
-                    name="opening_date"
-                    class="form-control"
-                    value="{{ today if today is defined else '' }}"
-                    required
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>개통 상태</label>
-
-                <select
-                    name="status"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="개통완료">개통완료</option>
-                    <option value="개통예정">개통예정</option>
-                    <option value="개통대기">개통대기</option>
-                    <option value="개통취소">개통취소</option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>통신사</label>
-
-                <select
-                    name="carrier"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="">통신사 선택</option>
-                    <option value="SKT">SKT</option>
-                    <option value="KT">KT</option>
-                    <option value="LG U+">LG U+</option>
-                    <option value="알뜰폰">알뜰폰</option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>개통 유형</label>
-
-                <select
-                    name="opening_type"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="">개통 유형 선택</option>
-                    <option value="신규가입">신규가입</option>
-                    <option value="번호이동">번호이동</option>
-                    <option value="기기변경">기기변경</option>
-                    <option value="자급제">자급제</option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>개통번호</label>
-
-                <input
-                    type="tel"
-                    name="opening_phone"
-                    class="form-control"
-                    placeholder="개통된 전화번호"
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>이전 통신사</label>
-
-                <select
-                    name="previous_carrier"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="">해당없음</option>
-                    <option value="SKT">SKT</option>
-                    <option value="KT">KT</option>
-                    <option value="LG U+">LG U+</option>
-                    <option value="알뜰폰">알뜰폰</option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>이전 전화번호</label>
-
-                <input
-                    type="tel"
-                    name="previous_phone"
-                    class="form-control"
-                    placeholder="번호이동인 경우 입력"
-                    form="saleForm"
-                >
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- ==================================================
-         3. 단말기 정보
-    ================================================== -->
-
-    <div class="form-card">
-
-        <div class="section-title">
-            <span class="icon">📲</span>
-            단말기 정보
-            <small>판매 단말기 및 식별정보</small>
-        </div>
-
-        <div class="form-grid">
-
-            <div class="form-group">
-
-                <label>제조사</label>
-
-                <select
-                    name="manufacturer"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="">제조사 선택</option>
-                    <option value="삼성">삼성</option>
-                    <option value="애플">애플</option>
-                    <option value="기타">기타</option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>단말기</label>
-
-                <input
-                    type="text"
-                    name="device"
-                    class="form-control"
-                    placeholder="예: 갤럭시 S26 울트라"
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>모델번호</label>
-
-                <input
-                    type="text"
-                    name="model_number"
-                    class="form-control"
-                    placeholder="예: SM-S948N"
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>색상</label>
-
-                <input
-                    type="text"
-                    name="color"
-                    class="form-control"
-                    placeholder="예: 블랙"
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>용량</label>
-
-                <select
-                    name="storage"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="">용량 선택</option>
-                    <option value="128GB">128GB</option>
-                    <option value="256GB">256GB</option>
-                    <option value="512GB">512GB</option>
-                    <option value="1TB">1TB</option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>IMEI</label>
-
-                <input
-                    type="text"
-                    name="imei"
-                    class="form-control"
-                    placeholder="IMEI 번호"
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>일련번호</label>
-
-                <input
-                    type="text"
-                    name="serial_number"
-                    class="form-control"
-                    placeholder="단말기 일련번호"
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>유심번호</label>
-
-                <input
-                    type="text"
-                    name="usim_number"
-                    class="form-control"
-                    placeholder="유심번호"
-                    form="saleForm"
-                >
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- ==================================================
-         4. 요금제 / 약정
-    ================================================== -->
-
-    <div class="form-card">
-
-        <div class="section-title">
-            <span class="icon">📄</span>
-            요금제 / 약정정보
-            <small>요금제 및 계약 조건</small>
-        </div>
-
-        <div class="form-grid">
-
-            <div class="form-group">
-
-                <label>요금제</label>
-
-                <input
-                    type="text"
-                    name="plan"
-                    class="form-control"
-                    placeholder="예: 99,000원 요금제"
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>약정 유형</label>
-
-                <select
-                    name="contract_type"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="">약정 유형 선택</option>
-                    <option value="공시지원금">공시지원금</option>
-                    <option value="선택약정">선택약정</option>
-                    <option value="자급제">자급제</option>
-                    <option value="무약정">무약정</option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>할부개월</label>
-
-                <select
-                    name="installment_months"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="">선택</option>
-                    <option value="0">일시불</option>
-                    <option value="12">12개월</option>
-                    <option value="24">24개월</option>
-                    <option value="30">30개월</option>
-                    <option value="36">36개월</option>
-                    <option value="48">48개월</option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>선택약정 할인</label>
-
-                <select
-                    name="discount_type"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="">선택</option>
-                    <option value="없음">없음</option>
-                    <option value="25% 선택약정">25% 선택약정</option>
-
-                </select>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>결합 여부</label>
-
-                <select
-                    name="bundle_type"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="">선택</option>
-                    <option value="없음">없음</option>
-                    <option value="인터넷 결합">인터넷 결합</option>
-                    <option value="가족결합">가족결합</option>
-                    <option value="기타결합">기타결합</option>
-
-                </select>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- ==================================================
-         5. 금액정보
-    ================================================== -->
-
-    <div class="form-card">
-
-        <div class="section-title">
-            <span class="icon">💰</span>
-            판매 / 정산 금액
-            <small>매장 실무용 금액정보</small>
-        </div>
-
-        <div class="form-grid">
-
-            <div class="form-group">
-
-                <label>출고가</label>
-
-                <div class="money-wrap">
-
-                    <input
-                        type="text"
-                        name="device_price"
-                        class="form-control money-input"
-                        placeholder="0"
-                        inputmode="numeric"
-                        form="saleForm"
-                    >
-
-                    <span class="money-unit">원</span>
-
-                </div>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>공시지원금</label>
-
-                <div class="money-wrap">
-
-                    <input
-                        type="text"
-                        name="subsidy"
-                        class="form-control money-input"
-                        placeholder="0"
-                        inputmode="numeric"
-                        form="saleForm"
-                    >
-
-                    <span class="money-unit">원</span>
-
-                </div>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>추가지원금</label>
-
-                <div class="money-wrap">
-
-                    <input
-                        type="text"
-                        name="additional_subsidy"
-                        class="form-control money-input"
-                        placeholder="0"
-                        inputmode="numeric"
-                        form="saleForm"
-                    >
-
-                    <span class="money-unit">원</span>
-
-                </div>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>판매점 지원금</label>
-
-                <div class="money-wrap">
-
-                    <input
-                        type="text"
-                        name="shop_subsidy"
-                        class="form-control money-input"
-                        placeholder="0"
-                        inputmode="numeric"
-                        form="saleForm"
-                    >
-
-                    <span class="money-unit">원</span>
-
-                </div>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>할부원금</label>
-
-                <div class="money-wrap">
-
-                    <input
-                        type="text"
-                        name="installment_price"
-                        class="form-control money-input"
-                        placeholder="0"
-                        inputmode="numeric"
-                        form="saleForm"
-                    >
-
-                    <span class="money-unit">원</span>
-
-                </div>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>현금완납</label>
-
-                <div class="money-wrap">
-
-                    <input
-                        type="text"
-                        name="cash_price"
-                        class="form-control money-input"
-                        placeholder="0"
-                        inputmode="numeric"
-                        form="saleForm"
-                    >
-
-                    <span class="money-unit">원</span>
-
-                </div>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>월 할부금</label>
-
-                <div class="money-wrap">
-
-                    <input
-                        type="text"
-                        name="monthly_payment"
-                        class="form-control money-input"
-                        placeholder="0"
-                        inputmode="numeric"
-                        form="saleForm"
-                    >
-
-                    <span class="money-unit">원</span>
-
-                </div>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>고객 실납부금</label>
-
-                <div class="money-wrap">
-
-                    <input
-                        type="text"
-                        name="customer_payment"
-                        class="form-control money-input"
-                        placeholder="0"
-                        inputmode="numeric"
-                        form="saleForm"
-                    >
-
-                    <span class="money-unit">원</span>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <div class="total-box">
-
-            <div class="total-item">
-
-                <div class="label">
-                    출고가
-                </div>
-
-                <div class="value">
-                    <span id="previewDevicePrice">0</span>
-                    <span class="unit">원</span>
-                </div>
-
-            </div>
-
-
-            <div class="total-item">
-
-                <div class="label">
-                    총 지원금
-                </div>
-
-                <div class="value">
-                    <span id="previewSubsidy">0</span>
-                    <span class="unit">원</span>
-                </div>
-
-            </div>
-
-
-            <div class="total-item">
-
-                <div class="label">
-                    할부원금
-                </div>
-
-                <div class="value">
-                    <span id="previewInstallment">0</span>
-                    <span class="unit">원</span>
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <div class="notice">
-
-            <strong>금액 입력 안내</strong><br>
-
-            1000000처럼 숫자만 입력하면 자동으로
-            1,000,000원 형식으로 표시됩니다.
-
-        </div>
-
-    </div>
-
-
-    <!-- ==================================================
-         6. 부가서비스
-    ================================================== -->
-
-    <div class="form-card">
-
-        <div class="section-title">
-            <span class="icon">🧾</span>
-            부가서비스
-            <small>가입 서비스 및 유지조건</small>
-        </div>
-
-        <div class="form-grid">
-
-            <div class="form-group full">
-
-                <div
-                    class="service-box"
-                    id="serviceContainer"
-                >
-
-                    <div class="service-row">
-
-                        <div class="form-group">
-
-                            <label>서비스명</label>
-
-                            <input
-                                type="text"
-                                name="service_name[]"
-                                class="form-control"
-                                placeholder="예: 보험"
-                                form="saleForm"
-                            >
-
-                        </div>
-
-
-                        <div class="form-group">
-
-                            <label>월 이용료</label>
-
-                            <input
-                                type="text"
-                                name="service_price[]"
-                                class="form-control money-input"
-                                placeholder="0"
-                                inputmode="numeric"
-                                form="saleForm"
-                            >
-
-                        </div>
-
-
-                        <div class="form-group">
-
-                            <label>유지기간</label>
-
-                            <select
-                                name="service_period[]"
-                                class="form-control"
-                                form="saleForm"
-                            >
-
-                                <option value="">선택</option>
-                                <option value="1개월">1개월</option>
-                                <option value="2개월">2개월</option>
-                                <option value="3개월">3개월</option>
-                                <option value="6개월">6개월</option>
-                                <option value="12개월">12개월</option>
-
-                            </select>
-
-                        </div>
-
-
-                        <button
-                            type="button"
-                            class="remove-service"
-                            onclick="removeRow(this)"
-                        >
-                            삭제
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-                <button
-                    type="button"
-                    class="add-service"
-                    onclick="addService()"
-                >
-                    + 부가서비스 추가
-                </button>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- ==================================================
-         7. 사은품
-    ================================================== -->
-
-    <div class="form-card">
-
-        <div class="section-title">
-            <span class="icon">🎁</span>
-            사은품 / 지급내역
-            <small>고객 지급 사은품 관리</small>
-        </div>
-
-        <div class="form-grid">
-
-            <div class="form-group full">
-
-                <div id="giftContainer">
-
-                    <div class="gift-row">
-
-                        <div class="form-group">
-
-                            <label>사은품</label>
-
-                            <input
-                                type="text"
-                                name="gift_name[]"
-                                class="form-control"
-                                placeholder="예: 케이스"
-                                form="saleForm"
-                            >
-
-                        </div>
-
-
-                        <div class="form-group">
-
-                            <label>지급상태</label>
-
-                            <select
-                                name="gift_status[]"
-                                class="form-control"
-                                form="saleForm"
-                            >
-
-                                <option value="지급완료">
-                                    지급완료
-                                </option>
-
-                                <option value="지급예정">
-                                    지급예정
-                                </option>
-
-                            </select>
-
-                        </div>
-
-
-                        <button
-                            type="button"
-                            class="remove-service"
-                            onclick="removeRow(this)"
-                        >
-                            삭제
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-                <button
-                    type="button"
-                    class="add-service"
-                    onclick="addGift()"
-                >
-                    + 사은품 추가
-                </button>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- ==================================================
-         8. 담당자 / 정산
-    ================================================== -->
-
-    <div class="form-card">
-
-        <div class="section-title">
-            <span class="icon">👨‍💼</span>
-            담당자 / 정산정보
-            <small>직원 및 정산 관리</small>
-        </div>
-
-        <div class="form-grid">
-
-            <div class="form-group">
-
-                <label>판매 담당자</label>
-
-                <input
-                    type="text"
-                    name="sales_staff"
-                    class="form-control"
-                    value="{{ session.get('username', '') }}"
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>개통 담당자</label>
-
-                <input
-                    type="text"
-                    name="opening_staff"
-                    class="form-control"
-                    placeholder="개통 담당자"
-                    form="saleForm"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>판매점 수수료</label>
-
-                <div class="money-wrap">
-
-                    <input
-                        type="text"
-                        name="commission"
-                        class="form-control money-input"
-                        placeholder="0"
-                        inputmode="numeric"
-                        form="saleForm"
-                    >
-
-                    <span class="money-unit">원</span>
-
-                </div>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>매장 마진</label>
-
-                <div class="money-wrap">
-
-                    <input
-                        type="text"
-                        name="shop_margin"
-                        class="form-control money-input"
-                        placeholder="0"
-                        inputmode="numeric"
-                        form="saleForm"
-                    >
-
-                    <span class="money-unit">원</span>
-
-                </div>
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>정산상태</label>
-
-                <select
-                    name="settlement_status"
-                    class="form-control"
-                    form="saleForm"
-                >
-
-                    <option value="정산대기">
-                        정산대기
-                    </option>
-
-                    <option value="정산완료">
-                        정산완료
-                    </option>
-
-                </select>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- ==================================================
-         9. 메모
-    ================================================== -->
-
-    <div class="form-card">
-
-        <div class="section-title">
-            <span class="icon">📝</span>
-            상담 / 개통 메모
-        </div>
-
-        <div class="form-grid">
-
-            <div class="form-group full">
-
-                <textarea
-                    name="memo"
-                    class="form-control"
-                    placeholder="고객 요청사항, 상담내용, 사은품, 개통 특이사항 등을 입력하세요."
-                    form="saleForm"
-                ></textarea>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- ==================================================
-         실제 POST FORM
-    ================================================== -->
+    <!-- =====================================================
+         실제 폼
+         ※ 모든 입력값은 이 폼에 연결
+    ====================================================== -->
 
     <form
         id="saleForm"
         method="POST"
-        action="{{ url_for('sale_new') }}"
+        action="{% if sale %}{{ url_for('sale_edit', sale_id=sale.id) }}{% else %}{{ url_for('sale_new') }}{% endif %}"
     >
+
+
+        <!-- =================================================
+             1. 고객 기본정보
+        ================================================== -->
+
+        <div class="form-card">
+
+            <div class="section-title">
+
+                <span class="section-icon">
+                    👤
+                </span>
+
+                고객 기본정보
+
+            </div>
+
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label>
+                        고객명
+                        <span class="required">*</span>
+                    </label>
+
+                    <input
+                        type="text"
+                        name="customer_name"
+                        class="form-control"
+                        placeholder="고객명을 입력하세요"
+                        value="{{ sale.customer_name if sale else '' }}"
+                        required
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        고객 연락처
+                    </label>
+
+                    <input
+                        type="tel"
+                        name="customer_phone"
+                        class="form-control"
+                        placeholder="010-0000-0000"
+                        value="{{ sale.customer_phone if sale else '' }}"
+                        autocomplete="off"
+                        inputmode="numeric"
+                    >
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             2. 개통 기본정보
+        ================================================== -->
+
+        <div class="form-card">
+
+            <div class="section-title">
+
+                <span class="section-icon">
+                    📱
+                </span>
+
+                개통 기본정보
+
+            </div>
+
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label>
+                        개통일
+                        <span class="required">*</span>
+                    </label>
+
+                    <input
+                        type="date"
+                        name="opening_date"
+                        class="form-control"
+                        value="{% if sale and sale.opening_date %}{{ sale.opening_date.strftime('%Y-%m-%d') }}{% else %}{{ today if today is defined else '' }}{% endif %}"
+                        required
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        통신사
+                    </label>
+
+                    <select
+                        name="carrier"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            통신사 선택
+                        </option>
+
+                        <option
+                            value="SKT"
+                            {% if sale and sale.carrier == "SKT" %}selected{% endif %}
+                        >
+                            SKT
+                        </option>
+
+                        <option
+                            value="KT"
+                            {% if sale and sale.carrier == "KT" %}selected{% endif %}
+                        >
+                            KT
+                        </option>
+
+                        <option
+                            value="LG U+"
+                            {% if sale and sale.carrier == "LG U+" %}selected{% endif %}
+                        >
+                            LG U+
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        개통 유형
+                    </label>
+
+                    <select
+                        name="opening_type"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            개통 유형 선택
+                        </option>
+
+                        <option
+                            value="신규가입"
+                            {% if sale and sale.opening_type == "신규가입" %}selected{% endif %}
+                        >
+                            신규가입
+                        </option>
+
+                        <option
+                            value="번호이동"
+                            {% if sale and sale.opening_type == "번호이동" %}selected{% endif %}
+                        >
+                            번호이동
+                        </option>
+
+                        <option
+                            value="기기변경"
+                            {% if sale and sale.opening_type == "기기변경" %}selected{% endif %}
+                        >
+                            기기변경
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        개통 상태
+                    </label>
+
+                    <select
+                        name="status"
+                        class="form-control"
+                    >
+
+                        <option
+                            value="개통완료"
+                            {% if not sale or sale.status == "개통완료" %}selected{% endif %}
+                        >
+                            개통완료
+                        </option>
+
+                        <option
+                            value="개통예정"
+                            {% if sale and sale.status == "개통예정" %}selected{% endif %}
+                        >
+                            개통예정
+                        </option>
+
+                        <option
+                            value="개통대기"
+                            {% if sale and sale.status == "개통대기" %}selected{% endif %}
+                        >
+                            개통대기
+                        </option>
+
+                        <option
+                            value="개통취소"
+                            {% if sale and sale.status == "개통취소" %}selected{% endif %}
+                        >
+                            개통취소
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             3. 단말기 정보
+        ================================================== -->
+
+        <div class="form-card">
+
+            <div class="section-title">
+
+                <span class="section-icon">
+                    📲
+                </span>
+
+                단말기 정보
+
+            </div>
+
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label>
+                        단말기
+                    </label>
+
+                    <input
+                        type="text"
+                        name="device"
+                        class="form-control"
+                        placeholder="예: 갤럭시 S26 울트라"
+                        value="{{ sale.device if sale else '' }}"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        색상
+                    </label>
+
+                    <input
+                        type="text"
+                        name="color"
+                        class="form-control"
+                        placeholder="예: 블랙"
+                        value="{{ sale.color if sale else '' }}"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        용량
+                    </label>
+
+                    <select
+                        name="storage"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            용량 선택
+                        </option>
+
+                        <option
+                            value="128GB"
+                            {% if sale and sale.storage == "128GB" %}selected{% endif %}
+                        >
+                            128GB
+                        </option>
+
+                        <option
+                            value="256GB"
+                            {% if sale and sale.storage == "256GB" %}selected{% endif %}
+                        >
+                            256GB
+                        </option>
+
+                        <option
+                            value="512GB"
+                            {% if sale and sale.storage == "512GB" %}selected{% endif %}
+                        >
+                            512GB
+                        </option>
+
+                        <option
+                            value="1TB"
+                            {% if sale and sale.storage == "1TB" %}selected{% endif %}
+                        >
+                            1TB
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             4. 요금제 / 계약정보
+        ================================================== -->
+
+        <div class="form-card">
+
+            <div class="section-title">
+
+                <span class="section-icon">
+                    📄
+                </span>
+
+                요금제 / 계약정보
+
+            </div>
+
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label>
+                        요금제
+                    </label>
+
+                    <input
+                        type="text"
+                        name="plan"
+                        class="form-control"
+                        placeholder="예: 99,000원 요금제"
+                        value="{{ sale.plan if sale else '' }}"
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        약정 유형
+                    </label>
+
+                    <select
+                        name="contract_type"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            약정 유형 선택
+                        </option>
+
+                        <option
+                            value="공시지원금"
+                            {% if sale and sale.contract_type == "공시지원금" %}selected{% endif %}
+                        >
+                            공시지원금
+                        </option>
+
+                        <option
+                            value="선택약정"
+                            {% if sale and sale.contract_type == "선택약정" %}selected{% endif %}
+                        >
+                            선택약정
+                        </option>
+
+                        <option
+                            value="자급제"
+                            {% if sale and sale.contract_type == "자급제" %}selected{% endif %}
+                        >
+                            자급제
+                        </option>
+
+                        <option
+                            value="무약정"
+                            {% if sale and sale.contract_type == "무약정" %}selected{% endif %}
+                        >
+                            무약정
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        할부개월
+                    </label>
+
+                    <select
+                        name="installment_months"
+                        class="form-control"
+                    >
+
+                        <option value="">
+                            선택
+                        </option>
+
+                        <option
+                            value="0"
+                            {% if sale and sale.installment_months == "0" %}selected{% endif %}
+                        >
+                            일시불
+                        </option>
+
+                        <option
+                            value="12"
+                            {% if sale and sale.installment_months == "12" %}selected{% endif %}
+                        >
+                            12개월
+                        </option>
+
+                        <option
+                            value="24"
+                            {% if sale and sale.installment_months == "24" %}selected{% endif %}
+                        >
+                            24개월
+                        </option>
+
+                        <option
+                            value="30"
+                            {% if sale and sale.installment_months == "30" %}selected{% endif %}
+                        >
+                            30개월
+                        </option>
+
+                        <option
+                            value="36"
+                            {% if sale and sale.installment_months == "36" %}selected{% endif %}
+                        >
+                            36개월
+                        </option>
+
+                        <option
+                            value="48"
+                            {% if sale and sale.installment_months == "48" %}selected{% endif %}
+                        >
+                            48개월
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             5. 금액정보
+        ================================================== -->
+
+        <div class="form-card">
+
+            <div class="section-title">
+
+                <span class="section-icon">
+                    💰
+                </span>
+
+                금액정보
+
+            </div>
+
+
+            <div class="form-grid">
+
+                <!-- 출고가 -->
+
+                <div class="form-group">
+
+                    <label>
+                        출고가
+                    </label>
+
+                    <div class="money-wrap">
+
+                        <input
+                            type="text"
+                            name="device_price"
+                            class="form-control money-input"
+                            placeholder="0"
+                            value="{{ sale.device_price if sale else '' }}"
+                            inputmode="numeric"
+                            autocomplete="off"
+                        >
+
+                        <span class="money-unit">
+                            원
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <!-- 지원금 -->
+
+                <div class="form-group">
+
+                    <label>
+                        지원금
+                    </label>
+
+                    <div class="money-wrap">
+
+                        <input
+                            type="text"
+                            name="subsidy"
+                            class="form-control money-input"
+                            placeholder="0"
+                            value="{{ sale.subsidy if sale else '' }}"
+                            inputmode="numeric"
+                            autocomplete="off"
+                        >
+
+                        <span class="money-unit">
+                            원
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <!-- 할부원금 -->
+
+                <div class="form-group">
+
+                    <label>
+                        할부원금
+                    </label>
+
+                    <div class="money-wrap">
+
+                        <input
+                            type="text"
+                            name="installment_price"
+                            class="form-control money-input"
+                            placeholder="0"
+                            value="{{ sale.installment_price if sale else '' }}"
+                            inputmode="numeric"
+                            autocomplete="off"
+                        >
+
+                        <span class="money-unit">
+                            원
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <!-- 현금완납 -->
+
+                <div class="form-group">
+
+                    <label>
+                        현금완납
+                    </label>
+
+                    <div class="money-wrap">
+
+                        <input
+                            type="text"
+                            name="cash_price"
+                            class="form-control money-input"
+                            placeholder="0"
+                            value="{{ sale.cash_price if sale else '' }}"
+                            inputmode="numeric"
+                            autocomplete="off"
+                        >
+
+                        <span class="money-unit">
+                            원
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <!-- 월 납부금 -->
+
+                <div class="form-group">
+
+                    <label>
+                        월 납부금
+                    </label>
+
+                    <div class="money-wrap">
+
+                        <input
+                            type="text"
+                            name="monthly_payment"
+                            class="form-control money-input"
+                            placeholder="0"
+                            value="{{ sale.monthly_payment if sale else '' }}"
+                            inputmode="numeric"
+                            autocomplete="off"
+                        >
+
+                        <span class="money-unit">
+                            원
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- 금액 요약 -->
+
+            <div class="price-summary">
+
+                <div class="price-summary-title">
+                    금액 요약
+                </div>
+
+                <div class="price-summary-grid">
+
+                    <div class="summary-item">
+
+                        <span class="summary-label">
+                            출고가
+                        </span>
+
+                        <span
+                            class="summary-value"
+                            id="summaryDevicePrice"
+                        >
+                            0원
+                        </span>
+
+                    </div>
+
+
+                    <div class="summary-item">
+
+                        <span class="summary-label">
+                            지원금
+                        </span>
+
+                        <span
+                            class="summary-value"
+                            id="summarySubsidy"
+                        >
+                            0원
+                        </span>
+
+                    </div>
+
+
+                    <div class="summary-item">
+
+                        <span class="summary-label">
+                            할부원금
+                        </span>
+
+                        <span
+                            class="summary-value"
+                            id="summaryInstallment"
+                        >
+                            0원
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="notice">
+
+                금액은 숫자만 입력해도 됩니다.
+                입력 중에는 자동으로 콤마가 표시됩니다.
+                <br>
+
+                예:
+                <strong>550000</strong>
+                →
+                <strong>550,000원</strong>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             6. 메모
+        ================================================== -->
+
+        <div class="form-card">
+
+            <div class="section-title">
+
+                <span class="section-icon">
+                    📝
+                </span>
+
+                상담 / 개통 메모
+
+            </div>
+
+
+            <div class="form-grid">
+
+                <div class="form-group full">
+
+                    <label>
+                        상담 / 개통 메모
+                    </label>
+
+                    <textarea
+                        name="memo"
+                        class="form-control"
+                        placeholder="고객 요청사항, 사은품, 부가서비스, 특이사항 등을 입력하세요."
+                    >{{ sale.memo if sale else '' }}</textarea>
+
+                    <div class="help-text">
+
+                        예:
+                        사은품 / 부가서비스 / 유지조건 /
+                        고객 요청사항 / 특이사항 등을 기록할 수 있습니다.
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             하단 버튼
+        ================================================== -->
 
         <div class="bottom-actions">
 
@@ -1542,14 +1225,23 @@
                 취소
             </a>
 
+
             <button
                 type="submit"
                 class="btn-submit"
+                id="submitButton"
             >
-                신규개통 등록
+
+                {% if sale %}
+                    개통정보 수정
+                {% else %}
+                    신규개통 등록
+                {% endif %}
+
             </button>
 
         </div>
+
 
     </form>
 
@@ -1558,551 +1250,373 @@
 
 <script>
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
 
-    /* ==========================================
-       금액 입력 자동 콤마
-    ========================================== */
 
-    function formatMoneyInput(input) {
+        /* =====================================================
+           금액 입력
+        ====================================================== */
 
-        let value =
-            input.value.replace(/[^0-9]/g, "");
+        const moneyInputs =
+            document.querySelectorAll(
+                ".money-input"
+            );
 
-        if (value) {
 
-            input.value =
-                Number(value).toLocaleString("ko-KR");
+        function onlyNumber(value) {
 
-        } else {
-
-            input.value = "";
+            return String(value || "")
+                .replace(/[^0-9]/g, "");
 
         }
 
-    }
 
+        function formatMoney(value) {
 
-    function rawMoney(value) {
+            const number =
+                onlyNumber(value);
 
-        return Number(
-            String(value || "")
-                .replace(/,/g, "")
-                .replace(/[^0-9]/g, "")
-        ) || 0;
-
-    }
-
-
-    function updatePreview() {
-
-        const devicePrice =
-            rawMoney(
-                document.querySelector(
-                    'input[name="device_price"]'
-                )?.value
-            );
-
-        const subsidy =
-            rawMoney(
-                document.querySelector(
-                    'input[name="subsidy"]'
-                )?.value
-            );
-
-        const additional =
-            rawMoney(
-                document.querySelector(
-                    'input[name="additional_subsidy"]'
-                )?.value
-            );
-
-        const shopSubsidy =
-            rawMoney(
-                document.querySelector(
-                    'input[name="shop_subsidy"]'
-                )?.value
-            );
-
-        const installment =
-            rawMoney(
-                document.querySelector(
-                    'input[name="installment_price"]'
-                )?.value
-            );
-
-
-        const totalSubsidy =
-            subsidy +
-            additional +
-            shopSubsidy;
-
-
-        document.getElementById(
-            "previewDevicePrice"
-        ).textContent =
-            devicePrice.toLocaleString("ko-KR");
-
-
-        document.getElementById(
-            "previewSubsidy"
-        ).textContent =
-            totalSubsidy.toLocaleString("ko-KR");
-
-
-        document.getElementById(
-            "previewInstallment"
-        ).textContent =
-            installment.toLocaleString("ko-KR");
-
-    }
-
-
-    function bindMoneyInput(input) {
-
-        input.addEventListener(
-            "input",
-            function () {
-
-                let cursor =
-                    this.selectionStart;
-
-                let before =
-                    this.value.length;
-
-                this.value =
-                    this.value.replace(
-                        /[^0-9]/g,
-                        ""
-                    );
-
-                if (this.value) {
-
-                    this.value =
-                        Number(
-                            this.value
-                        ).toLocaleString("ko-KR");
-
-                }
-
-                let after =
-                    this.value.length;
-
-                cursor +=
-                    after - before;
-
-                try {
-
-                    this.setSelectionRange(
-                        cursor,
-                        cursor
-                    );
-
-                } catch(e) {}
-
-                updatePreview();
-
+            if (!number) {
+                return "";
             }
-        );
 
-
-        input.addEventListener(
-            "focus",
-            function () {
-
-                this.value =
-                    this.value.replace(
-                        /,/g,
-                        ""
-                    );
-
-            }
-        );
-
-
-        input.addEventListener(
-            "blur",
-            function () {
-
-                formatMoneyInput(this);
-
-                updatePreview();
-
-            }
-        );
-
-    }
-
-
-    document
-        .querySelectorAll(".money-input")
-        .forEach(bindMoneyInput);
-
-
-    /* ==========================================
-       연락처 자동 하이픈
-    ========================================== */
-
-    function formatPhone(input) {
-
-        let value =
-            input.value.replace(
-                /[^0-9]/g,
-                ""
-            );
-
-
-        if (value.length <= 3) {
-
-            input.value = value;
+            return Number(number)
+                .toLocaleString("ko-KR");
 
         }
 
-        else if (value.length <= 7) {
 
-            input.value =
-                value.slice(0, 3) +
-                "-" +
-                value.slice(3);
+        moneyInputs.forEach(
+            function(input) {
 
-        }
 
-        else {
+                /* 입력 */
 
-            input.value =
-                value.slice(0, 3) +
-                "-" +
-                value.slice(3, 7) +
-                "-" +
-                value.slice(7, 11);
+                input.addEventListener(
+                    "input",
+                    function () {
 
-        }
+                        const cursorPosition =
+                            this.selectionStart;
 
-    }
+                        const beforeLength =
+                            this.value.length;
 
-
-    document
-        .querySelectorAll(
-            'input[type="tel"]'
-        )
-        .forEach(function(input) {
-
-            input.addEventListener(
-                "input",
-                function() {
-
-                    formatPhone(this);
-
-                }
-            );
-
-        });
-
-
-    /* ==========================================
-       제출 전 콤마 제거
-    ========================================== */
-
-    const form =
-        document.getElementById(
-            "saleForm"
-        );
-
-
-    if (form) {
-
-        form.addEventListener(
-            "submit",
-            function() {
-
-                document
-                    .querySelectorAll(
-                        ".money-input"
-                    )
-                    .forEach(function(input) {
-
-                        input.value =
-                            input.value
-                                .replace(/,/g, "");
-
-                    });
-
-            }
-        );
-
-    }
-
-
-    updatePreview();
-
-});
-
-
-/* ==========================================
-   부가서비스 추가
-========================================== */
-
-function addService() {
-
-    const container =
-        document.getElementById(
-            "serviceContainer"
-        );
-
-
-    const row =
-        document.createElement("div");
-
-    row.className =
-        "service-row";
-
-
-    row.innerHTML = `
-
-        <div class="form-group">
-
-            <label>서비스명</label>
-
-            <input
-                type="text"
-                name="service_name[]"
-                class="form-control"
-                placeholder="예: 보험"
-                form="saleForm"
-            >
-
-        </div>
-
-
-        <div class="form-group">
-
-            <label>월 이용료</label>
-
-            <input
-                type="text"
-                name="service_price[]"
-                class="form-control money-input"
-                placeholder="0"
-                inputmode="numeric"
-                form="saleForm"
-            >
-
-        </div>
-
-
-        <div class="form-group">
-
-            <label>유지기간</label>
-
-            <select
-                name="service_period[]"
-                class="form-control"
-                form="saleForm"
-            >
-
-                <option value="">선택</option>
-                <option value="1개월">1개월</option>
-                <option value="2개월">2개월</option>
-                <option value="3개월">3개월</option>
-                <option value="6개월">6개월</option>
-                <option value="12개월">12개월</option>
-
-            </select>
-
-        </div>
-
-
-        <button
-            type="button"
-            class="remove-service"
-            onclick="removeRow(this)"
-        >
-            삭제
-        </button>
-
-    `;
-
-
-    container.appendChild(row);
-
-
-    bindNewMoneyInputs(row);
-
-}
-
-
-/* ==========================================
-   사은품 추가
-========================================== */
-
-function addGift() {
-
-    const container =
-        document.getElementById(
-            "giftContainer"
-        );
-
-
-    const row =
-        document.createElement("div");
-
-    row.className =
-        "gift-row";
-
-
-    row.innerHTML = `
-
-        <div class="form-group">
-
-            <label>사은품</label>
-
-            <input
-                type="text"
-                name="gift_name[]"
-                class="form-control"
-                placeholder="예: 케이스"
-                form="saleForm"
-            >
-
-        </div>
-
-
-        <div class="form-group">
-
-            <label>지급상태</label>
-
-            <select
-                name="gift_status[]"
-                class="form-control"
-                form="saleForm"
-            >
-
-                <option value="지급완료">
-                    지급완료
-                </option>
-
-                <option value="지급예정">
-                    지급예정
-                </option>
-
-            </select>
-
-        </div>
-
-
-        <button
-            type="button"
-            class="remove-service"
-            onclick="removeRow(this)"
-        >
-            삭제
-        </button>
-
-    `;
-
-
-    container.appendChild(row);
-
-}
-
-
-/* ==========================================
-   행 삭제
-========================================== */
-
-function removeRow(button) {
-
-    const row =
-        button.closest(
-            ".service-row, .gift-row"
-        );
-
-
-    if (row) {
-
-        row.remove();
-
-    }
-
-}
-
-
-/* ==========================================
-   동적으로 생성된 금액 입력
-========================================== */
-
-function bindNewMoneyInputs(scope) {
-
-    scope
-        .querySelectorAll(".money-input")
-        .forEach(function(input) {
-
-            input.addEventListener(
-                "input",
-                function() {
-
-                    this.value =
-                        this.value.replace(
-                            /[^0-9]/g,
-                            ""
-                        );
-
-                    if (this.value) {
-
-                        this.value =
-                            Number(
+                        const number =
+                            onlyNumber(
                                 this.value
-                            ).toLocaleString(
-                                "ko-KR"
+                            );
+
+                        this.value =
+                            formatMoney(
+                                number
+                            );
+
+                        const afterLength =
+                            this.value.length;
+
+                        const difference =
+                            afterLength -
+                            beforeLength;
+
+                        try {
+
+                            this.setSelectionRange(
+                                cursorPosition + difference,
+                                cursorPosition + difference
+                            );
+
+                        } catch (e) {}
+
+                        updateSummary();
+
+                    }
+                );
+
+
+                /* 포커스 */
+
+                input.addEventListener(
+                    "focus",
+                    function () {
+
+                        this.value =
+                            onlyNumber(
+                                this.value
                             );
 
                     }
+                );
 
-                }
+
+                /* 포커스 해제 */
+
+                input.addEventListener(
+                    "blur",
+                    function () {
+
+                        this.value =
+                            formatMoney(
+                                this.value
+                            );
+
+                        updateSummary();
+
+                    }
+                );
+
+            }
+        );
+
+
+        /* =====================================================
+           금액 요약
+        ====================================================== */
+
+        function getMoney(
+            name
+        ) {
+
+            const input =
+                document.querySelector(
+                    'input[name="' + name + '"]'
+                );
+
+            if (!input) {
+                return 0;
+            }
+
+            const value =
+                onlyNumber(
+                    input.value
+                );
+
+            return value
+                ? Number(value)
+                : 0;
+
+        }
+
+
+        function displayMoney(
+            number
+        ) {
+
+            return Number(number || 0)
+                .toLocaleString("ko-KR")
+                + "원";
+
+        }
+
+
+        function updateSummary() {
+
+            const devicePrice =
+                getMoney(
+                    "device_price"
+                );
+
+            const subsidy =
+                getMoney(
+                    "subsidy"
+                );
+
+            const installment =
+                getMoney(
+                    "installment_price"
+                );
+
+
+            const deviceElement =
+                document.getElementById(
+                    "summaryDevicePrice"
+                );
+
+            const subsidyElement =
+                document.getElementById(
+                    "summarySubsidy"
+                );
+
+            const installmentElement =
+                document.getElementById(
+                    "summaryInstallment"
+                );
+
+
+            if (deviceElement) {
+
+                deviceElement.textContent =
+                    displayMoney(
+                        devicePrice
+                    );
+
+            }
+
+
+            if (subsidyElement) {
+
+                subsidyElement.textContent =
+                    displayMoney(
+                        subsidy
+                    );
+
+            }
+
+
+            if (installmentElement) {
+
+                installmentElement.textContent =
+                    displayMoney(
+                        installment
+                    );
+
+            }
+
+        }
+
+
+        /* =====================================================
+           연락처 자동 하이픈
+        ====================================================== */
+
+        const phoneInput =
+            document.querySelector(
+                'input[name="customer_phone"]'
             );
 
 
-            input.addEventListener(
-                "focus",
-                function() {
+        if (phoneInput) {
 
-                    this.value =
-                        this.value.replace(
-                            /,/g,
-                            ""
-                        );
+            phoneInput.addEventListener(
+                "input",
+                function () {
 
-                }
-            );
-
-
-            input.addEventListener(
-                "blur",
-                function() {
-
-                    const value =
+                    let value =
                         this.value.replace(
                             /[^0-9]/g,
                             ""
                         );
 
-                    if (value) {
+
+                    if (value.length <= 3) {
 
                         this.value =
-                            Number(
-                                value
-                            ).toLocaleString(
-                                "ko-KR"
-                            );
+                            value;
+
+                    }
+
+                    else if (
+                        value.length <= 7
+                    ) {
+
+                        this.value =
+                            value.slice(0, 3)
+                            + "-"
+                            + value.slice(3);
+
+                    }
+
+                    else {
+
+                        this.value =
+                            value.slice(0, 3)
+                            + "-"
+                            + value.slice(3, 7)
+                            + "-"
+                            + value.slice(7, 11);
 
                     }
 
                 }
             );
 
-        });
+        }
 
-}
+
+        /* =====================================================
+           폼 제출
+           DB에는 콤마 없는 숫자 저장
+        ====================================================== */
+
+        const form =
+            document.getElementById(
+                "saleForm"
+            );
+
+
+        const submitButton =
+            document.getElementById(
+                "submitButton"
+            );
+
+
+        if (form) {
+
+            form.addEventListener(
+                "submit",
+                function () {
+
+
+                    /* 금액 콤마 제거 */
+
+                    moneyInputs.forEach(
+                        function(input) {
+
+                            input.value =
+                                onlyNumber(
+                                    input.value
+                                );
+
+                        }
+                    );
+
+
+                    /* 중복 클릭 방지 */
+
+                    if (submitButton) {
+
+                        submitButton.disabled =
+                            true;
+
+                        submitButton.textContent =
+                            "저장 중...";
+
+                    }
+
+                }
+            );
+
+        }
+
+
+        /* =====================================================
+           수정 화면 진입 시 금액 포맷
+        ====================================================== */
+
+        moneyInputs.forEach(
+            function(input) {
+
+                if (input.value) {
+
+                    input.value =
+                        formatMoney(
+                            input.value
+                        );
+
+                }
+
+            }
+        );
+
+
+        /* 초기 금액 요약 */
+
+        updateSummary();
+
+    }
+);
 
 </script>
 

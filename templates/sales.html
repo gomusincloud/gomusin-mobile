@@ -2,76 +2,572 @@
 {% block content %}
 
 <style>
-.list-wrap{max-width:1350px;margin:0 auto;padding:20px}
-.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
-.filters{background:#fff;border:1px solid #e4e0d5;border-radius:14px;padding:15px;display:flex;gap:10px;flex-wrap:wrap}
-.filters input{padding:10px;border:1px solid #d7d2c6;border-radius:8px}
-.btnx{border:0;border-radius:8px;padding:10px 16px;text-decoration:none;font-weight:700;display:inline-block}
-.main{background:#111;color:#fff}.sub{background:#f1eee6;color:#222}
-.stats{display:flex;gap:12px;margin:15px 0}.stat{background:#fff;border:1px solid #e4e0d5;border-radius:12px;padding:13px 18px}.stat b{display:block;font-size:20px}
-.table-wrap{overflow:auto;background:#fff;border:1px solid #e4e0d5;border-radius:14px}
-table{width:100%;border-collapse:collapse;min-width:1100px}
-th,td{padding:11px 10px;border-bottom:1px solid #eee;text-align:left;white-space:nowrap}
-th{background:#f8f6f0;font-size:13px}
-.money{text-align:right}
-.badge{padding:4px 8px;border-radius:20px;background:#f1eee6;font-size:12px}
+.list-wrap{
+    max-width:1450px;
+    margin:0 auto;
+    padding:20px;
+}
+
+.head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-bottom:18px;
+}
+
+.head h1{
+    margin:0 0 6px;
+}
+
+.head p{
+    margin:0;
+    color:#777;
+}
+
+.filters{
+    background:#fff;
+    border:1px solid #e4e0d5;
+    border-radius:14px;
+    padding:15px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.filters input,
+.filters select{
+    padding:10px 12px;
+    border:1px solid #d7d2c6;
+    border-radius:8px;
+    background:#fff;
+}
+
+.btnx{
+    border:0;
+    border-radius:8px;
+    padding:10px 16px;
+    text-decoration:none;
+    font-weight:700;
+    display:inline-block;
+    cursor:pointer;
+}
+
+.main{
+    background:#111;
+    color:#fff;
+}
+
+.sub{
+    background:#f1eee6;
+    color:#222;
+}
+
+.stats{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:12px;
+    margin:15px 0;
+}
+
+.stat{
+    background:#fff;
+    border:1px solid #e4e0d5;
+    border-radius:12px;
+    padding:15px 18px;
+}
+
+.stat span{
+    display:block;
+    color:#777;
+    font-size:13px;
+    margin-bottom:5px;
+}
+
+.stat b{
+    display:block;
+    font-size:21px;
+}
+
+.table-wrap{
+    overflow:auto;
+    background:#fff;
+    border:1px solid #e4e0d5;
+    border-radius:14px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:1250px;
+}
+
+th,
+td{
+    padding:11px 10px;
+    border-bottom:1px solid #eee;
+    text-align:left;
+    white-space:nowrap;
+}
+
+th{
+    background:#f8f6f0;
+    font-size:13px;
+}
+
+.money{
+    text-align:right;
+}
+
+.badge{
+    padding:4px 8px;
+    border-radius:20px;
+    background:#f1eee6;
+    font-size:12px;
+}
+
+.status{
+    padding:5px 9px;
+    border-radius:20px;
+    background:#eef7ee;
+    font-size:12px;
+    font-weight:700;
+}
+
+.empty{
+    text-align:center;
+    padding:50px !important;
+    color:#888;
+}
+
+@media(max-width:900px){
+
+    .stats{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+    .head{
+        align-items:flex-start;
+        flex-direction:column;
+    }
+
+}
 </style>
 
+
 <div class="list-wrap">
-  <div class="head">
-    <div>
-      <h1>개통건 조회</h1>
-      <p>등록된 판매/개통건을 검색하고 상세 내용을 확인합니다.</p>
+
+    <!-- ================================================= -->
+    <!-- 헤더 -->
+    <!-- ================================================= -->
+
+    <div class="head">
+
+        <div>
+
+            <h1>개통건 조회</h1>
+
+            <p>
+                등록된 판매·개통 정보를 검색하고 상세 내용을 확인합니다.
+            </p>
+
+        </div>
+
+        <a
+            class="btnx main"
+            href="{{ url_for('sale_new') }}"
+        >
+            ＋ 신규 개통 등록
+        </a>
+
     </div>
-    <a class="btnx main" href="{{ url_for('sale_new') }}">＋ 신규 개통 등록</a>
-  </div>
 
-  <form class="filters" method="get">
-    <input name="q" value="{{ q }}" placeholder="고객명 / 전화번호 / 기종 / 개통번호">
-    <input type="date" name="sale_date" value="{{ sale_date }}">
-    <input name="seller" value="{{ seller }}" placeholder="판매자">
-    <button class="btnx sub" type="submit">검색</button>
-    <a class="btnx sub" href="{{ url_for('sales') }}">초기화</a>
-  </form>
 
-  <div class="stats">
-    <div class="stat"><span>조회 건수</span><b>{{ sales|length }}건</b></div>
-    <div class="stat"><span>정산 합계</span><b>{{ "{:,}".format(total_settlement) }}원</b></div>
-    <div class="stat"><span>마진 합계</span><b>{{ "{:,}".format(total_margin) }}원</b></div>
-  </div>
+    <!-- ================================================= -->
+    <!-- 검색 -->
+    <!-- ================================================= -->
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>날짜</th><th>고객</th><th>연락처</th><th>구분</th><th>통신사</th>
-          <th>가입유형</th><th>기종</th><th>요금제</th><th>판매자</th>
-          <th>정산</th><th>마진</th><th>사후관리</th><th></th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for s in sales %}
-        <tr>
-          <td>{{ s.sale_date }}</td>
-          <td><b>{{ s.customer_name }}</b></td>
-          <td>{{ s.customer_phone or '-' }}</td>
-          <td><span class="badge">{{ s.sale_kind }}</span></td>
-          <td>{{ s.carrier or '-' }}</td>
-          <td>{{ s.signup_type or '-' }}</td>
-          <td>{{ s.device or '-' }}</td>
-          <td>{{ s.plan or '-' }}</td>
-          <td>{{ s.seller or '-' }}</td>
-          <td class="money">{{ "{:,}".format(s.settlement or 0) }}원</td>
-          <td class="money">{{ "{:,}".format(s.margin or 0) }}원</td>
-          <td>{{ s.aftercare_status or '-' }}</td>
-          <td><a class="btnx sub" href="{{ url_for('sale_detail', sale_id=s.id) }}">상세</a></td>
-        </tr>
-      {% else %}
-        <tr><td colspan="13" style="text-align:center;padding:40px">등록된 개통건이 없습니다.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
+    <form
+        class="filters"
+        method="get"
+    >
+
+        <input
+            name="q"
+            value="{{ q or '' }}"
+            placeholder="고객명 / 전화번호 / 기종 / IMEI / 개통번호"
+        >
+
+        <input
+            type="date"
+            name="sale_date"
+            value="{{ sale_date or '' }}"
+        >
+
+        <input
+            name="seller"
+            value="{{ seller or '' }}"
+            placeholder="담당 직원"
+        >
+
+        <select name="carrier">
+
+            <option value="">전체 통신사</option>
+
+            <option
+                value="SKT"
+                {% if carrier == "SKT" %}selected{% endif %}
+            >
+                SKT
+            </option>
+
+            <option
+                value="KT"
+                {% if carrier == "KT" %}selected{% endif %}
+            >
+                KT
+            </option>
+
+            <option
+                value="LG U+"
+                {% if carrier == "LG U+" %}selected{% endif %}
+            >
+                LG U+
+            </option>
+
+            <option
+                value="알뜰폰"
+                {% if carrier == "알뜰폰" %}selected{% endif %}
+            >
+                알뜰폰
+            </option>
+
+        </select>
+
+        <button
+            class="btnx sub"
+            type="submit"
+        >
+            검색
+        </button>
+
+        <a
+            class="btnx sub"
+            href="{{ url_for('sales') }}"
+        >
+            초기화
+        </a>
+
+    </form>
+
+
+    <!-- ================================================= -->
+    <!-- 통계 -->
+    <!-- ================================================= -->
+
+    <div class="stats">
+
+        <div class="stat">
+
+            <span>조회 건수</span>
+
+            <b>
+                {{ sales|length }}건
+            </b>
+
+        </div>
+
+
+        <div class="stat">
+
+            <span>개통 완료</span>
+
+            <b>
+                {{ completed_sales }}건
+            </b>
+
+        </div>
+
+
+        <div class="stat">
+
+            <span>진행중</span>
+
+            <b>
+                {{ pending_sales }}건
+            </b>
+
+        </div>
+
+
+        <div class="stat">
+
+            <span>오늘 개통</span>
+
+            <b>
+                {{ today_sales }}건
+            </b>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- 목록 -->
+    <!-- ================================================= -->
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>개통일</th>
+
+                    <th>고객</th>
+
+                    <th>연락처</th>
+
+                    <th>통신사</th>
+
+                    <th>가입유형</th>
+
+                    <th>단말기</th>
+
+                    <th>요금제</th>
+
+                    <th>개통번호</th>
+
+                    <th>담당직원</th>
+
+                    <th>상태</th>
+
+                    <th>현금완납</th>
+
+                    <th>월납부</th>
+
+                    <th></th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+            {% for s in sales %}
+
+                <tr>
+
+                    <!-- 날짜 -->
+
+                    <td>
+                        {{ s.opening_date or '-' }}
+                    </td>
+
+
+                    <!-- 고객 -->
+
+                    <td>
+
+                        <b>
+                            {{ s.customer_name }}
+                        </b>
+
+                    </td>
+
+
+                    <!-- 연락처 -->
+
+                    <td>
+                        {{ s.customer_phone or '-' }}
+                    </td>
+
+
+                    <!-- 통신사 -->
+
+                    <td>
+                        {{ s.carrier or '-' }}
+                    </td>
+
+
+                    <!-- 가입유형 -->
+
+                    <td>
+
+                        {% if s.opening_type %}
+
+                            <span class="badge">
+                                {{ s.opening_type }}
+                            </span>
+
+                        {% else %}
+
+                            -
+
+                        {% endif %}
+
+                    </td>
+
+
+                    <!-- 단말기 -->
+
+                    <td>
+
+                        {% if s.manufacturer %}
+
+                            {{ s.manufacturer }}
+                            {{ s.device or '' }}
+
+                        {% else %}
+
+                            {{ s.device or '-' }}
+
+                        {% endif %}
+
+                        {% if s.storage %}
+                            / {{ s.storage }}
+                        {% endif %}
+
+                        {% if s.color %}
+                            / {{ s.color }}
+                        {% endif %}
+
+                    </td>
+
+
+                    <!-- 요금제 -->
+
+                    <td>
+                        {{ s.plan or '-' }}
+                    </td>
+
+
+                    <!-- 개통번호 -->
+
+                    <td>
+                        {{ s.opening_number or '-' }}
+                    </td>
+
+
+                    <!-- 담당 직원 -->
+
+                    <td>
+                        {{ s.assigned_staff or s.created_by or '-' }}
+                    </td>
+
+
+                    <!-- 상태 -->
+
+                    <td>
+
+                        <span class="status">
+
+                            {{ s.status or '-' }}
+
+                        </span>
+
+                    </td>
+
+
+                    <!-- 현금완납 -->
+
+                    <td class="money">
+
+                        {% if s.cash_price %}
+
+                            {{ "{:,}".format(
+                                s.cash_price|int
+                            ) }}원
+
+                        {% else %}
+
+                            -
+
+                        {% endif %}
+
+                    </td>
+
+
+                    <!-- 월 납부 -->
+
+                    <td class="money">
+
+                        {% if s.monthly_payment %}
+
+                            {{ "{:,}".format(
+                                s.monthly_payment|int
+                            ) }}원
+
+                        {% elif s.monthly_installment %}
+
+                            {{ "{:,}".format(
+                                s.monthly_installment|int
+                            ) }}원
+
+                        {% else %}
+
+                            -
+
+                        {% endif %}
+
+                    </td>
+
+
+                    <!-- 상세 -->
+
+                    <td>
+
+                        <a
+                            class="btnx sub"
+                            href="{{ url_for(
+                                'sale_detail',
+                                sale_id=s.id
+                            ) }}"
+                        >
+                            상세
+                        </a>
+
+                    </td>
+
+                </tr>
+
+
+            {% else %}
+
+                <tr>
+
+                    <td
+                        colspan="13"
+                        class="empty"
+                    >
+
+                        등록된 개통건이 없습니다.
+
+                        <br><br>
+
+                        <a
+                            class="btnx main"
+                            href="{{ url_for('sale_new') }}"
+                        >
+                            첫 개통건 등록하기
+                        </a>
+
+                    </td>
+
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
 </div>
 
 {% endblock %}

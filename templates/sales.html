@@ -1,573 +1,1341 @@
 {% extends "base.html" %}
+
 {% block content %}
 
-<style>
-.list-wrap{
-    max-width:1450px;
-    margin:0 auto;
-    padding:20px;
-}
+<div class="page-container">
 
-.head{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:12px;
-    margin-bottom:18px;
-}
+    <!-- =====================================================
+         페이지 헤더
+    ====================================================== -->
 
-.head h1{
-    margin:0 0 6px;
-}
-
-.head p{
-    margin:0;
-    color:#777;
-}
-
-.filters{
-    background:#fff;
-    border:1px solid #e4e0d5;
-    border-radius:14px;
-    padding:15px;
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-}
-
-.filters input,
-.filters select{
-    padding:10px 12px;
-    border:1px solid #d7d2c6;
-    border-radius:8px;
-    background:#fff;
-}
-
-.btnx{
-    border:0;
-    border-radius:8px;
-    padding:10px 16px;
-    text-decoration:none;
-    font-weight:700;
-    display:inline-block;
-    cursor:pointer;
-}
-
-.main{
-    background:#111;
-    color:#fff;
-}
-
-.sub{
-    background:#f1eee6;
-    color:#222;
-}
-
-.stats{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:12px;
-    margin:15px 0;
-}
-
-.stat{
-    background:#fff;
-    border:1px solid #e4e0d5;
-    border-radius:12px;
-    padding:15px 18px;
-}
-
-.stat span{
-    display:block;
-    color:#777;
-    font-size:13px;
-    margin-bottom:5px;
-}
-
-.stat b{
-    display:block;
-    font-size:21px;
-}
-
-.table-wrap{
-    overflow:auto;
-    background:#fff;
-    border:1px solid #e4e0d5;
-    border-radius:14px;
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-    min-width:1250px;
-}
-
-th,
-td{
-    padding:11px 10px;
-    border-bottom:1px solid #eee;
-    text-align:left;
-    white-space:nowrap;
-}
-
-th{
-    background:#f8f6f0;
-    font-size:13px;
-}
-
-.money{
-    text-align:right;
-}
-
-.badge{
-    padding:4px 8px;
-    border-radius:20px;
-    background:#f1eee6;
-    font-size:12px;
-}
-
-.status{
-    padding:5px 9px;
-    border-radius:20px;
-    background:#eef7ee;
-    font-size:12px;
-    font-weight:700;
-}
-
-.empty{
-    text-align:center;
-    padding:50px !important;
-    color:#888;
-}
-
-@media(max-width:900px){
-
-    .stats{
-        grid-template-columns:repeat(2,1fr);
-    }
-
-    .head{
-        align-items:flex-start;
-        flex-direction:column;
-    }
-
-}
-</style>
-
-
-<div class="list-wrap">
-
-    <!-- ================================================= -->
-    <!-- 헤더 -->
-    <!-- ================================================= -->
-
-    <div class="head">
+    <div class="page-header">
 
         <div>
+            <div class="page-title-row">
+                <h1>개통건 조회</h1>
 
-            <h1>개통건 조회</h1>
+                <span class="page-badge">
+                    SALES
+                </span>
+            </div>
 
-            <p>
-                등록된 판매·개통 정보를 검색하고 상세 내용을 확인합니다.
+            <p class="page-description">
+                등록된 개통건을 검색하고 개통 정보와 정산 내역을 관리합니다.
             </p>
-
         </div>
 
-        <a
-            class="btnx main"
-            href="{{ url_for('sale_new') }}"
-        >
-            ＋ 신규 개통 등록
-        </a>
+        <div class="page-header-actions">
 
-    </div>
-
-
-    <!-- ================================================= -->
-    <!-- 검색 -->
-    <!-- ================================================= -->
-
-    <form
-        class="filters"
-        method="get"
-    >
-
-        <input
-            name="q"
-            value="{{ q or '' }}"
-            placeholder="고객명 / 전화번호 / 기종 / IMEI / 개통번호"
-        >
-
-        <input
-            type="date"
-            name="sale_date"
-            value="{{ sale_date or '' }}"
-        >
-
-        <input
-            name="seller"
-            value="{{ seller or '' }}"
-            placeholder="담당 직원"
-        >
-
-        <select name="carrier">
-
-            <option value="">전체 통신사</option>
-
-            <option
-                value="SKT"
-                {% if carrier == "SKT" %}selected{% endif %}
+            <a
+                href="{{ url_for('sale_new') }}"
+                class="btn btn-primary"
             >
-                SKT
-            </option>
-
-            <option
-                value="KT"
-                {% if carrier == "KT" %}selected{% endif %}
-            >
-                KT
-            </option>
-
-            <option
-                value="LG U+"
-                {% if carrier == "LG U+" %}selected{% endif %}
-            >
-                LG U+
-            </option>
-
-            <option
-                value="알뜰폰"
-                {% if carrier == "알뜰폰" %}selected{% endif %}
-            >
-                알뜰폰
-            </option>
-
-        </select>
-
-        <button
-            class="btnx sub"
-            type="submit"
-        >
-            검색
-        </button>
-
-        <a
-            class="btnx sub"
-            href="{{ url_for('sales') }}"
-        >
-            초기화
-        </a>
-
-    </form>
-
-
-    <!-- ================================================= -->
-    <!-- 통계 -->
-    <!-- ================================================= -->
-
-    <div class="stats">
-
-        <div class="stat">
-
-            <span>조회 건수</span>
-
-            <b>
-                {{ sales|length }}건
-            </b>
-
-        </div>
-
-
-        <div class="stat">
-
-            <span>개통 완료</span>
-
-            <b>
-                {{ completed_sales }}건
-            </b>
-
-        </div>
-
-
-        <div class="stat">
-
-            <span>진행중</span>
-
-            <b>
-                {{ pending_sales }}건
-            </b>
-
-        </div>
-
-
-        <div class="stat">
-
-            <span>오늘 개통</span>
-
-            <b>
-                {{ today_sales }}건
-            </b>
+                + 신규 개통 등록
+            </a>
 
         </div>
 
     </div>
 
 
-    <!-- ================================================= -->
-    <!-- 목록 -->
-    <!-- ================================================= -->
+    <!-- =====================================================
+         요약 카드
+    ====================================================== -->
 
-    <div class="table-wrap">
+    <div class="summary-grid">
 
-        <table>
+        <div class="summary-card">
 
-            <thead>
+            <div class="summary-icon">
+                📱
+            </div>
 
-                <tr>
+            <div class="summary-content">
 
-                    <th>개통일</th>
+                <span>
+                    검색 결과
+                </span>
 
-                    <th>고객</th>
+                <strong>
+                    {{ sales|length }}
+                    <small>건</small>
+                </strong>
 
-                    <th>연락처</th>
+            </div>
 
-                    <th>통신사</th>
-
-                    <th>가입유형</th>
-
-                    <th>단말기</th>
-
-                    <th>요금제</th>
-
-                    <th>개통번호</th>
-
-                    <th>담당직원</th>
-
-                    <th>상태</th>
-
-                    <th>현금완납</th>
-
-                    <th>월납부</th>
-
-                    <th></th>
-
-                </tr>
-
-            </thead>
+        </div>
 
 
-            <tbody>
+        <div class="summary-card">
 
-            {% for s in sales %}
+            <div class="summary-icon">
+                💰
+            </div>
 
-                <tr>
+            <div class="summary-content">
 
-                    <!-- 날짜 -->
+                <span>
+                    총 정산
+                </span>
 
-                    <td>
-                        {{ s.opening_date or '-' }}
-                    </td>
+                <strong>
+                    {{ "{:,}".format(total_settlement or 0) }}
+                    <small>원</small>
+                </strong>
 
+            </div>
 
-                    <!-- 고객 -->
-
-                    <td>
-
-                        <b>
-                            {{ s.customer_name }}
-                        </b>
-
-                    </td>
+        </div>
 
 
-                    <!-- 연락처 -->
+        <div class="summary-card">
 
-                    <td>
-                        {{ s.customer_phone or '-' }}
-                    </td>
+            <div class="summary-icon">
+                📈
+            </div>
+
+            <div class="summary-content">
+
+                <span>
+                    총 마진
+                </span>
+
+                <strong class="summary-profit">
+                    {{ "{:,}".format(total_margin or 0) }}
+                    <small>원</small>
+                </strong>
+
+            </div>
+
+        </div>
+
+    </div>
 
 
-                    <!-- 통신사 -->
+    <!-- =====================================================
+         검색 영역
+    ====================================================== -->
 
-                    <td>
-                        {{ s.carrier or '-' }}
-                    </td>
+    <section class="content-card">
+
+        <div class="content-card-header">
+
+            <div>
+                <h2>개통건 검색</h2>
+
+                <p>
+                    고객명, 연락처, 기종, IMEI, 개통번호, 담당직원 등을 검색할 수 있습니다.
+                </p>
+            </div>
+
+        </div>
 
 
-                    <!-- 가입유형 -->
+        <form
+            method="GET"
+            action="{{ url_for('sales') }}"
+            class="search-form"
+        >
 
-                    <td>
+            <div class="search-field search-field-wide">
 
-                        {% if s.opening_type %}
+                <label>
+                    통합검색
+                </label>
 
-                            <span class="badge">
-                                {{ s.opening_type }}
+                <input
+                    type="text"
+                    name="q"
+                    value="{{ q or '' }}"
+                    placeholder="고객명 / 연락처 / 기종 / IMEI / 개통번호"
+                >
+
+            </div>
+
+
+            <div class="search-field">
+
+                <label>
+                    개통일
+                </label>
+
+                <input
+                    type="date"
+                    name="sale_date"
+                    value="{{ sale_date or '' }}"
+                >
+
+            </div>
+
+
+            <div class="search-field">
+
+                <label>
+                    담당직원
+                </label>
+
+                <input
+                    type="text"
+                    name="seller"
+                    value="{{ seller or '' }}"
+                    placeholder="담당직원"
+                >
+
+            </div>
+
+
+            <div class="search-actions">
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    🔎 검색
+                </button>
+
+                <a
+                    href="{{ url_for('sales') }}"
+                    class="btn btn-secondary"
+                >
+                    초기화
+                </a>
+
+            </div>
+
+        </form>
+
+    </section>
+
+
+    <!-- =====================================================
+         결과 목록
+    ====================================================== -->
+
+    <section class="content-card">
+
+        <div class="content-card-header">
+
+            <div>
+                <h2>개통 목록</h2>
+
+                <p>
+                    총 {{ sales|length }}건의 개통 정보가 조회되었습니다.
+                </p>
+            </div>
+
+        </div>
+
+
+        {% if sales %}
+
+        <div class="table-wrapper">
+
+            <table class="data-table sales-table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>개통일</th>
+
+                        <th>고객정보</th>
+
+                        <th>통신사</th>
+
+                        <th>단말기</th>
+
+                        <th>판매구분</th>
+
+                        <th>요금제</th>
+
+                        <th>담당직원</th>
+
+                        <th>정산</th>
+
+                        <th>마진</th>
+
+                        <th>상태</th>
+
+                        <th>관리</th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                {% for sale in sales %}
+
+                    <tr>
+
+                        <!-- 개통일 -->
+
+                        <td>
+
+                            <div class="table-main-text">
+                                {{ sale.opening_date.strftime('%Y-%m-%d') if sale.opening_date else '-' }}
+                            </div>
+
+                            {% if sale.created_at %}
+
+                            <div class="table-sub-text">
+                                등록
+                                {{ sale.created_at.strftime('%m/%d %H:%M') }}
+                            </div>
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <!-- 고객 -->
+
+                        <td>
+
+                            <div class="customer-cell">
+
+                                <strong>
+                                    {{ sale.customer_name }}
+                                </strong>
+
+                                {% if sale.customer_phone %}
+
+                                <span>
+                                    {{ sale.customer_phone }}
+                                </span>
+
+                                {% endif %}
+
+                            </div>
+
+                        </td>
+
+
+                        <!-- 통신사 -->
+
+                        <td>
+
+                            {% if sale.carrier %}
+
+                                <span class="status-badge carrier-badge">
+                                    {{ sale.carrier }}
+                                </span>
+
+                            {% else %}
+
+                                <span class="muted">
+                                    -
+
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <!-- 단말기 -->
+
+                        <td>
+
+                            <div class="device-cell">
+
+                                <strong>
+                                    {{ sale.device or '-' }}
+                                </strong>
+
+                                {% if sale.color or sale.storage %}
+
+                                <span>
+
+                                    {% if sale.color %}
+                                        {{ sale.color }}
+                                    {% endif %}
+
+                                    {% if sale.color and sale.storage %}
+                                        ·
+                                    {% endif %}
+
+                                    {% if sale.storage %}
+                                        {{ sale.storage }}
+                                    {% endif %}
+
+                                </span>
+
+                                {% endif %}
+
+                            </div>
+
+                        </td>
+
+
+                        <!-- 판매구분 -->
+
+                        <td>
+
+                            <span class="status-badge">
+
+                                {{ sale.sale_kind }}
+
                             </span>
 
-                        {% else %}
-
-                            -
-
-                        {% endif %}
-
-                    </td>
+                        </td>
 
 
-                    <!-- 단말기 -->
+                        <!-- 요금제 -->
 
-                    <td>
+                        <td>
 
-                        {% if s.manufacturer %}
+                            {% if sale.plan %}
 
-                            {{ s.manufacturer }}
-                            {{ s.device or '' }}
+                            <div class="table-main-text">
+                                {{ sale.plan }}
+                            </div>
 
-                        {% else %}
+                            {% else %}
 
-                            {{ s.device or '-' }}
+                            <span class="muted">
+                                -
+                            </span>
 
-                        {% endif %}
+                            {% endif %}
 
-                        {% if s.storage %}
-                            / {{ s.storage }}
-                        {% endif %}
-
-                        {% if s.color %}
-                            / {{ s.color }}
-                        {% endif %}
-
-                    </td>
+                        </td>
 
 
-                    <!-- 요금제 -->
+                        <!-- 담당직원 -->
 
-                    <td>
-                        {{ s.plan or '-' }}
-                    </td>
+                        <td>
 
+                            {{ sale.seller }}
 
-                    <!-- 개통번호 -->
-
-                    <td>
-                        {{ s.opening_number or '-' }}
-                    </td>
+                        </td>
 
 
-                    <!-- 담당 직원 -->
+                        <!-- 정산 -->
 
-                    <td>
-                        {{ s.assigned_staff or s.created_by or '-' }}
-                    </td>
+                        <td>
+
+                            <strong class="money-text">
+
+                                {{ "{:,}".format(sale.settlement_amount or 0) }}
+
+                                <small>원</small>
+
+                            </strong>
+
+                        </td>
 
 
-                    <!-- 상태 -->
+                        <!-- 마진 -->
 
-                    <td>
+                        <td>
 
-                        <span class="status">
+                            <strong
+                                class="
+                                    money-text
+                                    {% if sale.margin_amount > 0 %}
+                                        profit-text
+                                    {% elif sale.margin_amount < 0 %}
+                                        loss-text
+                                    {% endif %}
+                                "
+                            >
 
-                            {{ s.status or '-' }}
+                                {{ "{:,}".format(sale.margin_amount or 0) }}
 
+                                <small>원</small>
+
+                            </strong>
+
+                        </td>
+
+
+                        <!-- 상태 -->
+
+                        <td>
+
+                            {% set status = sale.status or '개통완료' %}
+
+                            {% if status == '개통완료' %}
+
+                                <span class="status-badge status-success">
+                                    {{ status }}
+                                </span>
+
+                            {% elif status == '개통취소' %}
+
+                                <span class="status-badge status-danger">
+                                    {{ status }}
+                                </span>
+
+                            {% elif status == '개통예정' %}
+
+                                <span class="status-badge status-warning">
+                                    {{ status }}
+                                </span>
+
+                            {% else %}
+
+                                <span class="status-badge">
+                                    {{ status }}
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <!-- 관리 -->
+
+                        <td>
+
+                            <div class="table-actions">
+
+                                <a
+                                    href="{{ url_for('sale_detail', sale_id=sale.id) }}"
+                                    class="table-action view"
+                                    title="상세보기"
+                                >
+                                    보기
+                                </a>
+
+                                <a
+                                    href="{{ url_for('sale_edit', sale_id=sale.id) }}"
+                                    class="table-action edit"
+                                    title="수정"
+                                >
+                                    수정
+                                </a>
+
+                                {% if session.get('role') == 'admin' %}
+
+                                <form
+                                    method="POST"
+                                    action="{{ url_for('sale_delete', sale_id=sale.id) }}"
+                                    onsubmit="return confirm('정말 이 개통건을 삭제하시겠습니까?\\n삭제 후 복구할 수 없습니다.');"
+                                    style="display:inline;"
+                                >
+
+                                    <button
+                                        type="submit"
+                                        class="table-action delete"
+                                    >
+                                        삭제
+                                    </button>
+
+                                </form>
+
+                                {% endif %}
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <!-- =================================================
+             모바일 카드 목록
+        ================================================== -->
+
+        <div class="mobile-sales-list">
+
+            {% for sale in sales %}
+
+            <article class="mobile-sale-card">
+
+                <div class="mobile-sale-top">
+
+                    <div>
+
+                        <span class="mobile-sale-date">
+                            {{ sale.opening_date.strftime('%Y-%m-%d') if sale.opening_date else '-' }}
                         </span>
 
-                    </td>
+                        <h3>
+                            {{ sale.customer_name }}
+                        </h3>
+
+                    </div>
 
 
-                    <!-- 현금완납 -->
+                    {% set status = sale.status or '개통완료' %}
 
-                    <td class="money">
+                    {% if status == '개통완료' %}
 
-                        {% if s.cash_price %}
+                    <span class="status-badge status-success">
+                        {{ status }}
+                    </span>
 
-                            {{ "{:,}".format(
-                                s.cash_price|int
-                            ) }}원
+                    {% elif status == '개통취소' %}
 
-                        {% else %}
+                    <span class="status-badge status-danger">
+                        {{ status }}
+                    </span>
 
-                            -
+                    {% else %}
 
-                        {% endif %}
+                    <span class="status-badge">
+                        {{ status }}
+                    </span>
 
-                    </td>
+                    {% endif %}
 
-
-                    <!-- 월 납부 -->
-
-                    <td class="money">
-
-                        {% if s.monthly_payment %}
-
-                            {{ "{:,}".format(
-                                s.monthly_payment|int
-                            ) }}원
-
-                        {% elif s.monthly_installment %}
-
-                            {{ "{:,}".format(
-                                s.monthly_installment|int
-                            ) }}원
-
-                        {% else %}
-
-                            -
-
-                        {% endif %}
-
-                    </td>
+                </div>
 
 
-                    <!-- 상세 -->
+                <div class="mobile-sale-info">
 
-                    <td>
+                    <div>
 
-                        <a
-                            class="btnx sub"
-                            href="{{ url_for(
-                                'sale_detail',
-                                sale_id=s.id
-                            ) }}"
+                        <span>📱 단말기</span>
+
+                        <strong>
+                            {{ sale.device or '-' }}
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>📡 통신사</span>
+
+                        <strong>
+                            {{ sale.carrier or '-' }}
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>👤 담당</span>
+
+                        <strong>
+                            {{ sale.seller }}
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>💳 요금제</span>
+
+                        <strong>
+                            {{ sale.plan or '-' }}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div class="mobile-sale-money">
+
+                    <div>
+
+                        <span>
+                            정산
+                        </span>
+
+                        <strong>
+                            {{ "{:,}".format(sale.settlement_amount or 0) }}원
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            마진
+                        </span>
+
+                        <strong
+                            class="
+                                {% if sale.margin_amount > 0 %}
+                                    profit-text
+                                {% elif sale.margin_amount < 0 %}
+                                    loss-text
+                                {% endif %}
+                            "
                         >
-                            상세
-                        </a>
+                            {{ "{:,}".format(sale.margin_amount or 0) }}원
+                        </strong>
 
-                    </td>
+                    </div>
 
-                </tr>
+                </div>
 
 
-            {% else %}
+                <div class="mobile-sale-actions">
 
-                <tr>
-
-                    <td
-                        colspan="13"
-                        class="empty"
+                    <a
+                        href="{{ url_for('sale_detail', sale_id=sale.id) }}"
+                        class="btn btn-secondary"
                     >
+                        상세보기
+                    </a>
 
-                        등록된 개통건이 없습니다.
+                    <a
+                        href="{{ url_for('sale_edit', sale_id=sale.id) }}"
+                        class="btn btn-primary"
+                    >
+                        수정
+                    </a>
 
-                        <br><br>
+                </div>
 
-                        <a
-                            class="btnx main"
-                            href="{{ url_for('sale_new') }}"
-                        >
-                            첫 개통건 등록하기
-                        </a>
-
-                    </td>
-
-                </tr>
+            </article>
 
             {% endfor %}
 
-            </tbody>
+        </div>
 
-        </table>
 
-    </div>
+        {% else %}
+
+        <!-- =================================================
+             검색 결과 없음
+        ================================================== -->
+
+        <div class="empty-state">
+
+            <div class="empty-icon">
+                📱
+            </div>
+
+            <h3>
+                등록된 개통건이 없습니다.
+            </h3>
+
+            <p>
+                검색 조건을 변경하거나 새로운 개통건을 등록해주세요.
+            </p>
+
+            <a
+                href="{{ url_for('sale_new') }}"
+                class="btn btn-primary"
+            >
+                + 신규 개통 등록
+            </a>
+
+        </div>
+
+        {% endif %}
+
+    </section>
 
 </div>
+
+
+<style>
+
+/* =========================================================
+   Sales Page
+========================================================= */
+
+.page-container {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+.page-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-header h1 {
+    margin: 0;
+}
+
+.page-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 9px;
+    border-radius: 7px;
+    background: #f1f3f5;
+    color: #666;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+}
+
+.page-description {
+    margin: 8px 0 0;
+    color: #777;
+    font-size: 14px;
+}
+
+.page-header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+
+/* =========================================================
+   Summary
+========================================================= */
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.summary-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 105px;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 14px;
+    box-sizing: border-box;
+}
+
+.summary-icon {
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: #f5f5f5;
+    font-size: 21px;
+    flex-shrink: 0;
+}
+
+.summary-content {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.summary-content span {
+    color: #777;
+    font-size: 13px;
+}
+
+.summary-content strong {
+    color: #222;
+    font-size: 22px;
+}
+
+.summary-content strong small {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.summary-profit {
+    color: #e53935 !important;
+}
+
+
+/* =========================================================
+   Content Card
+========================================================= */
+
+.content-card {
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 14px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.content-card-header {
+    padding: 22px 24px;
+    border-bottom: 1px solid #eee;
+}
+
+.content-card-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.content-card-header p {
+    margin: 6px 0 0;
+    color: #888;
+    font-size: 13px;
+}
+
+
+/* =========================================================
+   Search
+========================================================= */
+
+.search-form {
+    display: grid;
+    grid-template-columns: minmax(240px, 2fr) minmax(160px, 1fr) minmax(160px, 1fr) auto;
+    gap: 12px;
+    padding: 20px 24px;
+    align-items: end;
+}
+
+.search-field {
+    min-width: 0;
+}
+
+.search-field label {
+    display: block;
+    margin-bottom: 7px;
+    color: #555;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.search-field input {
+    width: 100%;
+    height: 44px;
+    padding: 0 13px;
+    border: 1px solid #ddd;
+    border-radius: 9px;
+    background: #fff;
+    box-sizing: border-box;
+    outline: none;
+    font-size: 14px;
+}
+
+.search-field input:focus {
+    border-color: #111;
+}
+
+.search-actions {
+    display: flex;
+    gap: 7px;
+}
+
+
+/* =========================================================
+   Buttons
+========================================================= */
+
+.btn {
+    min-height: 42px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.btn-primary {
+    background: #111;
+    border-color: #111;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: #333;
+}
+
+.btn-secondary {
+    background: #fff;
+    border-color: #ddd;
+    color: #333;
+}
+
+.btn-secondary:hover {
+    background: #f7f7f7;
+}
+
+
+/* =========================================================
+   Table
+========================================================= */
+
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    min-width: 1250px;
+    border-collapse: collapse;
+}
+
+.data-table th {
+    padding: 13px 14px;
+    background: #fafafa;
+    border-bottom: 1px solid #e8e8e8;
+    color: #777;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.data-table td {
+    padding: 15px 14px;
+    border-bottom: 1px solid #f0f0f0;
+    color: #333;
+    font-size: 13px;
+    vertical-align: middle;
+}
+
+.data-table tbody tr:hover {
+    background: #fafafa;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.table-main-text {
+    font-weight: 600;
+}
+
+.table-sub-text {
+    margin-top: 4px;
+    color: #999;
+    font-size: 11px;
+}
+
+.table-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.table-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    padding: 0 9px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+    color: #444;
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.table-action:hover {
+    background: #f5f5f5;
+}
+
+.table-action.delete {
+    color: #d32f2f;
+    border-color: #f0caca;
+}
+
+.table-action.delete:hover {
+    background: #fff5f5;
+}
+
+
+/* =========================================================
+   Customer / Device
+========================================================= */
+
+.customer-cell,
+.device-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.customer-cell strong,
+.device-cell strong {
+    color: #222;
+}
+
+.customer-cell span,
+.device-cell span {
+    color: #888;
+    font-size: 11px;
+}
+
+.muted {
+    color: #aaa;
+}
+
+
+/* =========================================================
+   Badge
+========================================================= */
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 25px;
+    padding: 0 8px;
+    border-radius: 6px;
+    background: #f3f3f3;
+    color: #555;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.status-success {
+    background: #eef8f0;
+    color: #23833b;
+}
+
+.status-danger {
+    background: #fff0f0;
+    color: #d32f2f;
+}
+
+.status-warning {
+    background: #fff7e8;
+    color: #b26a00;
+}
+
+.carrier-badge {
+    background: #f2f4f7;
+    color: #444;
+}
+
+
+/* =========================================================
+   Money
+========================================================= */
+
+.money-text {
+    white-space: nowrap;
+    font-size: 13px;
+}
+
+.money-text small {
+    font-size: 10px;
+    font-weight: 400;
+}
+
+.profit-text {
+    color: #e53935;
+}
+
+.loss-text {
+    color: #1976d2;
+}
+
+
+/* =========================================================
+   Empty
+========================================================= */
+
+.empty-state {
+    padding: 70px 20px;
+    text-align: center;
+}
+
+.empty-icon {
+    margin-bottom: 14px;
+    font-size: 38px;
+}
+
+.empty-state h3 {
+    margin: 0;
+    font-size: 17px;
+}
+
+.empty-state p {
+    margin: 8px 0 20px;
+    color: #888;
+    font-size: 13px;
+}
+
+
+/* =========================================================
+   Mobile
+========================================================= */
+
+.mobile-sales-list {
+    display: none;
+}
+
+@media (max-width: 1100px) {
+
+    .search-form {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .search-field-wide {
+        grid-column: 1 / -1;
+    }
+
+    .search-actions {
+        grid-column: 1 / -1;
+    }
+
+}
+
+@media (max-width: 800px) {
+
+    .page-header {
+        flex-direction: column;
+    }
+
+    .page-header-actions {
+        width: 100%;
+    }
+
+    .page-header-actions .btn {
+        width: 100%;
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .content-card-header {
+        padding: 18px;
+    }
+
+    .search-form {
+        grid-template-columns: 1fr;
+        padding: 18px;
+    }
+
+    .search-field-wide {
+        grid-column: auto;
+    }
+
+    .search-actions {
+        grid-column: auto;
+    }
+
+    .search-actions .btn {
+        flex: 1;
+    }
+
+    .table-wrapper {
+        display: none;
+    }
+
+    .mobile-sales-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .mobile-sale-card {
+        padding: 16px;
+        border: 1px solid #e8e8e8;
+        border-radius: 12px;
+        background: #fff;
+    }
+
+    .mobile-sale-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .mobile-sale-date {
+        display: block;
+        margin-bottom: 4px;
+        color: #999;
+        font-size: 11px;
+    }
+
+    .mobile-sale-top h3 {
+        margin: 0;
+        font-size: 17px;
+    }
+
+    .mobile-sale-info {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        padding: 15px 0;
+    }
+
+    .mobile-sale-info div {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    .mobile-sale-info span,
+    .mobile-sale-money span {
+        color: #999;
+        font-size: 11px;
+    }
+
+    .mobile-sale-info strong {
+        overflow: hidden;
+        color: #333;
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mobile-sale-money {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 12px;
+        border-radius: 9px;
+        background: #f8f8f8;
+    }
+
+    .mobile-sale-money div {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .mobile-sale-money strong {
+        font-size: 14px;
+    }
+
+    .mobile-sale-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 14px;
+    }
+
+    .mobile-sale-actions .btn {
+        width: 100%;
+    }
+
+}
+
+</style>
 
 {% endblock %}

@@ -1,2700 +1,1162 @@
-import os
+import os, calendar, io
 from datetime import datetime, date, timedelta
 from functools import wraps
-
-from flask import (
-    Flask,
-    render_template,
-    request,
-    redirect,
-    url_for,
-    session,
-    flash,
-    abort
-)
-
+from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import or_, text
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
 
-from sqlalchemy import or_
-
-from werkzeug.security import (
-    generate_password_hash,
-    check_password_hash
+load_dotenv()
+app=Flask(__name__)
+database_url=os.environ.get('DATABASE_URL','sqlite:///gomusin.db')
+if database_url.startswith('postgres://'): database_url=database_url.replace('postgres://','postgresql://',1)
+if database_url.startswith('postgresql://'): database_url=database_url.replace('postgresql://','postgresql+psycopg://',1)
+app.config.update(
+ SECRET_KEY=os.environ.get('SECRET_KEY','CHANGE_THIS_SECRET_KEY'),
+ SQLALCHEMY_DATABASE_URI=database_url,
+ SQLALCHEMY_TRACK_MODIFICATIONS=False,
+ SESSION_COOKIE_SECURE=os.environ.get('COOKIE_SECURE','false').lower()=='true',
+ SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax',
+ SQLALCHEMY_ENGINE_OPTIONS={'pool_pre_ping':True},
+ MAX_CONTENT_LENGTH=12*1024*1024
 )
-
-
-# =========================================================
-# Flask 기본 설정
-# =========================================================
-
-app = Flask(__name__)
-
-
-# =========================================================
-# 데이터베이스 설정
-# =========================================================
-
-database_url = os.environ.get(
-    "DATABASE_URL",
-    "sqlite:///gomusin.db"
-)
-
-# Render PostgreSQL 주소 호환
-if database_url.startswith("postgres://"):
-    database_url = database_url.replace(
-        "postgres://",
-        "postgresql://",
-        1
-    )
-
-# psycopg 3 사용
-if database_url.startswith("postgresql://"):
-    database_url = database_url.replace(
-        "postgresql://",
-        "postgresql+psycopg://",
-        1
-    )
-
-
-app.config["SECRET_KEY"] = os.environ.get(
-    "SECRET_KEY",
-    "CHANGE_THIS_SECRET_KEY"
-)
-
-app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_pre_ping": True
-}
-
-
-if database_url.startswith("postgresql+psycopg://"):
-
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_pre_ping": True,
-        "connect_args": {
-            "connect_timeout": 10
-        }
-    }
-
-
-# =========================================================
-# 세션 쿠키 설정
-# =========================================================
-
-cookie_secure = os.environ.get(
-    "COOKIE_SECURE",
-    "true"
-).lower()
-
-app.config["SESSION_COOKIE_SECURE"] = (
-    cookie_secure == "true"
-)
-
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-
-
-# =========================================================
-# DB
-# =========================================================
-
-db = SQLAlchemy(app)
-
-
-# =========================================================
-# 사용자 모델
-# =========================================================
+db=SQLAlchemy(app)
 
 class User(db.Model):
+ id=db.Column(db.Integer,primary_key=True); username=db.Column(db.String(50),unique=True,nullable=False,index=True)
+ password_hash=db.Column(db.String(255),nullable=False); role=db.Column(db.String(20),nullable=False,default='staff')
+ display_name=db.Column(db.String(50)); branch_id=db.Column(db.Integer,db.ForeignKey('branch.id')); active=db.Column(db.Boolean,default=True,nullable=False)
+ created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False)
 
-    id = db.Column(
-        db.Integer,
-        primary_key=True
-    )
-
-    username = db.Column(
-        db.String(50),
-        unique=True,
-        nullable=False,
-        index=True
-    )
-
-    password_hash = db.Column(
-        db.String(255),
-        nullable=False
-    )
-
-    role = db.Column(
-        db.String(20),
-        nullable=False,
-        default="staff"
-    )
-
-    created_at = db.Column(
-        db.DateTime,
-        nullable=False,
-        default=datetime.utcnow
-    )
-
-
-# =========================================================
-# 고객 모델
-# =========================================================
-
+class Branch(db.Model):
+ id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(100),unique=True,nullable=False,index=True)
+ code=db.Column(db.String(30),unique=True); address=db.Column(db.String(255)); phone=db.Column(db.String(30)); manager_name=db.Column(db.String(50))
+ active=db.Column(db.Boolean,default=True,nullable=False); memo=db.Column(db.Text); created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False)
 class Customer(db.Model):
-
-    id = db.Column(
-        db.Integer,
-        primary_key=True
-    )
-
-    name = db.Column(
-        db.String(100),
-        nullable=False
-    )
-
-    phone = db.Column(
-        db.String(30),
-        index=True
-    )
-
-    device = db.Column(
-        db.String(100)
-    )
-
-    carrier = db.Column(
-        db.String(30)
-    )
-
-    status = db.Column(
-        db.String(30),
-        nullable=False,
-        default="상담중"
-    )
-
-    memo = db.Column(
-        db.Text
-    )
-
-    created_at = db.Column(
-        db.DateTime,
-        nullable=False,
-        default=datetime.utcnow
-    )
-
-    updated_at = db.Column(
-        db.DateTime,
-        nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
-    )
-
-
-# =========================================================
-# 예약 모델
-# =========================================================
-
+ id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(100),nullable=False); phone=db.Column(db.String(30),index=True); device=db.Column(db.String(100)); carrier=db.Column(db.String(30)); status=db.Column(db.String(30),default='상담중',nullable=False); memo=db.Column(db.Text); created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False); updated_at=db.Column(db.DateTime,default=datetime.utcnow,onupdate=datetime.utcnow,nullable=False)
 class Booking(db.Model):
-
-    id = db.Column(
-        db.Integer,
-        primary_key=True
-    )
-
-    name = db.Column(
-        db.String(100),
-        nullable=False
-    )
-
-    phone = db.Column(
-        db.String(30)
-    )
-
-    visit_date = db.Column(
-        db.String(50)
-    )
-
-    device = db.Column(
-        db.String(100)
-    )
-
-    memo = db.Column(
-        db.Text
-    )
-
-    created_at = db.Column(
-        db.DateTime,
-        nullable=False,
-        default=datetime.utcnow
-    )
-
-
-# =========================================================
-# 시세표 모델
-# =========================================================
-
+ id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(100),nullable=False); phone=db.Column(db.String(30)); visit_date=db.Column(db.String(50)); device=db.Column(db.String(100)); memo=db.Column(db.Text); created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False)
 class Price(db.Model):
-
-    id = db.Column(
-        db.Integer,
-        primary_key=True
-    )
-
-    device = db.Column(
-        db.String(100),
-        nullable=False
-    )
-
-    carrier = db.Column(
-        db.String(30),
-        nullable=False
-    )
-
-    sale_type = db.Column(
-        db.String(30),
-        nullable=False
-    )
-
-    price = db.Column(
-        db.String(100),
-        nullable=False
-    )
-
-    updated_at = db.Column(
-        db.DateTime,
-        nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
-    )
-
-
-# =========================================================
-# 신규개통 / 판매 모델
-# =========================================================
-
+ id=db.Column(db.Integer,primary_key=True); device=db.Column(db.String(100),nullable=False); carrier=db.Column(db.String(30),nullable=False); sale_type=db.Column(db.String(30),nullable=False); price=db.Column(db.String(100),nullable=False); updated_at=db.Column(db.DateTime,default=datetime.utcnow,onupdate=datetime.utcnow,nullable=False)
+class Partner(db.Model):
+ id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(100),unique=True,nullable=False,index=True); category=db.Column(db.String(30)); contact_name=db.Column(db.String(50)); phone=db.Column(db.String(30)); settlement_cycle=db.Column(db.String(30)); default_tax_rate=db.Column(db.Float,default=0.133); active=db.Column(db.Boolean,default=True,nullable=False); memo=db.Column(db.Text); created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False)
+class Inventory(db.Model):
+ id=db.Column(db.Integer,primary_key=True); serial_number=db.Column(db.String(100),unique=True,nullable=False,index=True); partner_id=db.Column(db.Integer,db.ForeignKey('partner.id')); carrier=db.Column(db.String(30)); manufacturer=db.Column(db.String(50)); model=db.Column(db.String(100),nullable=False); capacity=db.Column(db.String(50)); color=db.Column(db.String(50)); received_date=db.Column(db.Date,default=date.today,nullable=False); purchase_price=db.Column(db.Integer,default=0); storage_location=db.Column(db.String(50)); branch_id=db.Column(db.Integer,db.ForeignKey('branch.id')); status=db.Column(db.String(30),default='보유중',nullable=False,index=True); sale_id=db.Column(db.Integer,index=True); memo=db.Column(db.Text); created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False)
 class Sale(db.Model):
-
-    id = db.Column(
-        db.Integer,
-        primary_key=True
-    )
-
-    # =====================================================
-    # 고객 기본정보
-    # =====================================================
-
-    customer_name = db.Column(
-        db.String(100),
-        nullable=False
-    )
-
-    customer_phone = db.Column(
-        db.String(30)
-    )
-
-    customer_birth = db.Column(
-        db.String(20)
-    )
-
-    customer_gender = db.Column(
-        db.String(10)
-    )
-
-    # =====================================================
-    # 개통 기본정보
-    # =====================================================
-
-    opening_date = db.Column(
-        db.Date,
-        nullable=False,
-        default=date.today
-    )
-
-    carrier = db.Column(
-        db.String(30)
-    )
-
-    opening_type = db.Column(
-        db.String(30)
-    )
-
-    status = db.Column(
-        db.String(30),
-        nullable=False,
-        default="개통완료"
-    )
-
-    opening_number = db.Column(
-        db.String(50)
-    )
-
-    # =====================================================
-    # 단말기 정보
-    # =====================================================
-
-    manufacturer = db.Column(
-        db.String(50)
-    )
-
-    device = db.Column(
-        db.String(100)
-    )
-
-    color = db.Column(
-        db.String(50)
-    )
-
-    storage = db.Column(
-        db.String(50)
-    )
-
-    imei = db.Column(
-        db.String(100)
-    )
-
-    serial_number = db.Column(
-        db.String(100)
-    )
-
-    # =====================================================
-    # 요금제 / 계약정보
-    # =====================================================
-
-    plan = db.Column(
-        db.String(100)
-    )
-
-    contract_type = db.Column(
-        db.String(50)
-    )
-
-    installment_months = db.Column(
-        db.String(20)
-    )
-
-    selection_discount = db.Column(
-        db.String(20)
-    )
-
-    # =====================================================
-    # 금액정보
-    # =====================================================
-
-    device_price = db.Column(
-        db.String(50)
-    )
-
-    official_subsidy = db.Column(
-        db.String(50)
-    )
-
-    additional_subsidy = db.Column(
-        db.String(50)
-    )
-
-    seller_subsidy = db.Column(
-        db.String(50)
-    )
-
-    subsidy = db.Column(
-        db.String(50)
-    )
-
-    installment_price = db.Column(
-        db.String(50)
-    )
-
-    cash_price = db.Column(
-        db.String(50)
-    )
-
-    monthly_installment = db.Column(
-        db.String(50)
-    )
-
-    monthly_payment = db.Column(
-        db.String(50)
-    )
-
-    # =====================================================
-    # 실제 정산 / 마진
-    # =====================================================
-
-    settlement = db.Column(
-        db.String(50)
-    )
-
-    margin = db.Column(
-        db.String(50)
-    )
-
-    # =====================================================
-    # 부가서비스
-    # =====================================================
-
-    additional_services = db.Column(
-        db.Text
-    )
-
-    service_period = db.Column(
-        db.String(50)
-    )
-
-    # =====================================================
-    # 사은품
-    # =====================================================
-
-    gifts = db.Column(
-        db.Text
-    )
-
-    gift_status = db.Column(
-        db.String(30)
-    )
-
-    # =====================================================
-    # 사후관리
-    # =====================================================
-
-    aftercare_status = db.Column(
-        db.String(50)
-    )
-
-    # =====================================================
-    # 기존 단말기 / 중고폰
-    # =====================================================
-
-    old_device = db.Column(
-        db.String(100)
-    )
-
-    old_device_return = db.Column(
-        db.String(20)
-    )
-
-    trade_in_price = db.Column(
-        db.String(50)
-    )
-
-    # =====================================================
-    # 직원 / 관리정보
-    # =====================================================
-
-    assigned_staff = db.Column(
-        db.String(50)
-    )
-
-    created_by = db.Column(
-        db.String(50)
-    )
-
-    # =====================================================
-    # 메모
-    # =====================================================
-
-    memo = db.Column(
-        db.Text
-    )
-
-    # =====================================================
-    # 날짜
-    # =====================================================
-
-    created_at = db.Column(
-        db.DateTime,
-        nullable=False,
-        default=datetime.utcnow
-    )
-
-    updated_at = db.Column(
-        db.DateTime,
-        nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
-    )
-
-    # =====================================================
-    # sales.html 호환용 별칭
-    # =====================================================
-
-    @property
-    def sale_date(self):
-        return self.opening_date
-
-    @property
-    def sale_kind(self):
-        return self.opening_type or "-"
-
-    @property
-    def signup_type(self):
-        return self.contract_type or "-"
-
-    @property
-    def seller(self):
-        return self.assigned_staff or self.created_by or "-"
-
-    @property
-    def settlement_amount(self):
-        return parse_money(self.settlement)
-
-    @property
-    def margin_amount(self):
-        return parse_money(self.margin)
-
-
-# =========================================================
-# 금액 변환 함수
-# =========================================================
-
-def parse_money(value):
-    """
-    DB에 저장된 금액이
-    100000
-    100,000
-    100000원
-    빈값
-    None
-    등 어떤 형태라도 안전하게 숫자로 변환한다.
-    """
-
-    if value is None:
-        return 0
-
-    if isinstance(value, (int, float)):
-        return int(value)
-
-    text = str(value).strip()
-
-    if not text:
-        return 0
-
-    # 콤마 제거
-    text = text.replace(",", "")
-
-    # 원 표시 제거
-    text = text.replace("원", "")
-
-    # 공백 제거
-    text = text.replace(" ", "")
-
-    try:
-        return int(float(text))
-    except (ValueError, TypeError):
-        return 0
-
-
-# =========================================================
-# 데이터베이스 준비
-# =========================================================
+ id=db.Column(db.Integer,primary_key=True)
+ customer_name=db.Column(db.String(100),nullable=False); customer_phone=db.Column(db.String(30)); customer_birth=db.Column(db.String(20)); customer_gender=db.Column(db.String(10)); opening_date=db.Column(db.Date,default=date.today,nullable=False); carrier=db.Column(db.String(30)); opening_type=db.Column(db.String(30)); status=db.Column(db.String(30),default='개통완료',nullable=False); opening_number=db.Column(db.String(50)); manufacturer=db.Column(db.String(50)); device=db.Column(db.String(100)); color=db.Column(db.String(50)); storage=db.Column(db.String(50)); imei=db.Column(db.String(100)); serial_number=db.Column(db.String(100)); plan=db.Column(db.String(100)); contract_type=db.Column(db.String(50)); installment_months=db.Column(db.String(20)); selection_discount=db.Column(db.String(20)); device_price=db.Column(db.String(50)); official_subsidy=db.Column(db.String(50)); additional_subsidy=db.Column(db.String(50)); seller_subsidy=db.Column(db.String(50)); subsidy=db.Column(db.String(50)); installment_price=db.Column(db.String(50)); cash_price=db.Column(db.String(50)); monthly_installment=db.Column(db.String(50)); monthly_payment=db.Column(db.String(50)); settlement=db.Column(db.String(50)); margin=db.Column(db.String(50)); additional_services=db.Column(db.Text); service_period=db.Column(db.String(50)); gifts=db.Column(db.Text); gift_status=db.Column(db.String(30)); aftercare_status=db.Column(db.String(50)); old_device=db.Column(db.String(100)); old_device_return=db.Column(db.String(20)); trade_in_price=db.Column(db.String(50)); assigned_staff=db.Column(db.String(50)); created_by=db.Column(db.String(50)); memo=db.Column(db.Text)
+ partner_id=db.Column(db.Integer,db.ForeignKey('partner.id')); inventory_id=db.Column(db.Integer,db.ForeignKey('inventory.id')); branch_id=db.Column(db.Integer,db.ForeignKey('branch.id')); visit_source=db.Column(db.String(50)); current_plan=db.Column(db.String(100)); next_plan=db.Column(db.String(100)); plan_change_due_date=db.Column(db.Date); rebate=db.Column(db.Integer,default=0); verbal_extra=db.Column(db.Integer,default=0); deduction=db.Column(db.Integer,default=0); extra_support=db.Column(db.Integer,default=0); settlement_amount_v2=db.Column(db.Integer,default=0); tax_rate=db.Column(db.Float,default=0.133); tax_amount=db.Column(db.Integer,default=0); customer_payback=db.Column(db.Integer,default=0); transfer_fee=db.Column(db.Integer,default=0); sim_payment_type=db.Column(db.String(20),default='없음'); sim_fee=db.Column(db.Integer,default=7700); final_margin=db.Column(db.Integer,default=0); internet_carrier=db.Column(db.String(30)); internet_subscriber=db.Column(db.String(100)); internet_install_date=db.Column(db.Date); internet_cancel_due_date=db.Column(db.Date); payback_due_date=db.Column(db.Date); created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False); updated_at=db.Column(db.DateTime,default=datetime.utcnow,onupdate=datetime.utcnow,nullable=False)
+class SaleAddon(db.Model):
+ id=db.Column(db.Integer,primary_key=True); sale_id=db.Column(db.Integer,db.ForeignKey('sale.id',ondelete='CASCADE'),nullable=False,index=True); name=db.Column(db.String(100),nullable=False); retention_rule=db.Column(db.String(30)); cancellation_due_date=db.Column(db.Date); created_at=db.Column(db.DateTime,default=datetime.utcnow)
+class CustomerTask(db.Model):
+ id=db.Column(db.Integer,primary_key=True); customer_id=db.Column(db.Integer,db.ForeignKey('customer.id')); sale_id=db.Column(db.Integer,db.ForeignKey('sale.id')); task_type=db.Column(db.String(50),nullable=False,index=True); title=db.Column(db.String(150),nullable=False); description=db.Column(db.Text); due_date=db.Column(db.Date,nullable=False,index=True); assigned_staff=db.Column(db.String(50)); status=db.Column(db.String(30),default='처리예정',nullable=False,index=True); auto_created=db.Column(db.Boolean,default=False,nullable=False); completed_at=db.Column(db.DateTime); completed_by=db.Column(db.String(50)); result_memo=db.Column(db.Text); created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False)
+class Payback(db.Model):
+ id=db.Column(db.Integer,primary_key=True); sale_id=db.Column(db.Integer,db.ForeignKey('sale.id'),nullable=False,index=True); customer_id=db.Column(db.Integer,db.ForeignKey('customer.id')); amount=db.Column(db.Integer,default=0,nullable=False); due_date=db.Column(db.Date,index=True); status=db.Column(db.String(30),default='처리예정',nullable=False,index=True); collection_source=db.Column(db.String(100)); bank=db.Column(db.String(50)); account_number=db.Column(db.String(100)); account_holder=db.Column(db.String(100)); memo=db.Column(db.Text); processed_at=db.Column(db.DateTime); processed_by=db.Column(db.String(50)); created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False)
+
+class WiredSale(db.Model):
+ id=db.Column(db.Integer,primary_key=True)
+ sale_date=db.Column(db.Date,nullable=False,index=True)
+ customer_name=db.Column(db.String(100),nullable=False,index=True)
+ customer_phone=db.Column(db.String(30),index=True)
+ subscriber_name=db.Column(db.String(100))
+ branch_id=db.Column(db.Integer,db.ForeignKey('branch.id'),index=True)
+ assigned_staff=db.Column(db.String(50),index=True)
+ carrier=db.Column(db.String(30),index=True)
+ product_type=db.Column(db.String(50),index=True)
+ internet_plan=db.Column(db.String(120))
+ internet_speed=db.Column(db.String(20))
+ tv_plan=db.Column(db.String(100))
+ install_due_date=db.Column(db.Date,index=True)
+ install_date=db.Column(db.Date,index=True)
+ status=db.Column(db.String(30),default='접수',nullable=False,index=True)
+ rebate=db.Column(db.Integer,default=0)
+ verbal_extra=db.Column(db.Integer,default=0)
+ gift_certificate=db.Column(db.Integer,default=0)
+ gift_cost=db.Column(db.Integer,default=0)
+ deduction=db.Column(db.Integer,default=0)
+ settlement_amount=db.Column(db.Integer,default=0)
+ tax_rate=db.Column(db.Float,default=0.133)
+ tax_amount=db.Column(db.Integer,default=0)
+ payback=db.Column(db.Integer,default=0)
+ gift_return=db.Column(db.Integer,default=0)
+ final_margin=db.Column(db.Integer,default=0)
+ memo=db.Column(db.Text)
+ created_by=db.Column(db.String(50)); created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False); updated_at=db.Column(db.DateTime,default=datetime.utcnow,onupdate=datetime.utcnow)
+
+
+class PlanMaster(db.Model):
+ id=db.Column(db.Integer,primary_key=True)
+ carrier=db.Column(db.String(20),nullable=False,index=True)
+ name=db.Column(db.String(120),nullable=False,index=True)
+ active=db.Column(db.Boolean,default=True,nullable=False,index=True)
+ sort_order=db.Column(db.Integer,default=0)
+ created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False)
+
+class WiredProductMaster(db.Model):
+ id=db.Column(db.Integer,primary_key=True)
+ carrier=db.Column(db.String(20),nullable=False,index=True)
+ category=db.Column(db.String(20),nullable=False,index=True)  # internet / tv
+ name=db.Column(db.String(120),nullable=False,index=True)
+ speed=db.Column(db.String(20))
+ active=db.Column(db.Boolean,default=True,nullable=False,index=True)
+ sort_order=db.Column(db.Integer,default=0)
+ created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False)
+
+class DeviceMaster(db.Model):
+ id=db.Column(db.Integer,primary_key=True)
+ manufacturer=db.Column(db.String(30),nullable=False,index=True)
+ model=db.Column(db.String(120),nullable=False,index=True)
+ capacities=db.Column(db.String(200))
+ colors=db.Column(db.String(500))
+ active=db.Column(db.Boolean,default=True,nullable=False,index=True)
+ sort_order=db.Column(db.Integer,default=0)
+ created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False)
+
+class SaleDocument(db.Model):
+ id=db.Column(db.Integer,primary_key=True)
+ sale_id=db.Column(db.Integer,db.ForeignKey('sale.id',ondelete='CASCADE'),nullable=False,index=True)
+ branch_id=db.Column(db.Integer,db.ForeignKey('branch.id'),index=True)
+ doc_type=db.Column(db.String(50),default='기타서류')
+ original_name=db.Column(db.String(255),nullable=False)
+ content_type=db.Column(db.String(100),nullable=False)
+ file_size=db.Column(db.Integer,default=0)
+ file_data=db.Column(db.LargeBinary,nullable=False)
+ uploaded_by=db.Column(db.String(50))
+ created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False,index=True)
+
+class InventoryMovement(db.Model):
+ id=db.Column(db.Integer,primary_key=True)
+ inventory_id=db.Column(db.Integer,db.ForeignKey('inventory.id'),nullable=False,index=True)
+ action=db.Column(db.String(30),nullable=False,index=True)
+ from_branch_id=db.Column(db.Integer,db.ForeignKey('branch.id'))
+ to_branch_id=db.Column(db.Integer,db.ForeignKey('branch.id'))
+ from_status=db.Column(db.String(30)); to_status=db.Column(db.String(30))
+ processed_by=db.Column(db.String(50)); memo=db.Column(db.Text)
+ created_at=db.Column(db.DateTime,default=datetime.utcnow,nullable=False,index=True)
+
+def money(v):
+ try:return int(float(str(v or 0).replace(',','').replace('원','').strip() or 0))
+ except:return 0
+
+def parse_date(v):
+ try:return datetime.strptime((v or '').strip(),'%Y-%m-%d').date() if v else None
+ except:return None
+
+def add_months(d,n):
+ m=d.month-1+n; y=d.year+m//12; m=m%12+1; return date(y,m,min(d.day,calendar.monthrange(y,m)[1]))
+def due_from_rule(d,rule):
+ rule=(rule or '').upper().strip()
+ if rule.startswith('D+'):
+  try:return d+timedelta(days=int(rule[2:]))
+  except:return None
+ if rule.startswith('M+'):
+  try:return add_months(d,int(rule[2:]))
+  except:return None
+ return parse_date(rule)
+def calc_settlement(rebate,verbal,deduct,support,payback,opening_type='',sim_payment_type='없음',tax_rate=.133):
+ base=rebate+verbal-deduct-support
+ transfer_fee=800 if opening_type=='번호이동' else 0
+ settlement=base-transfer_fee
+ tax=round(settlement*tax_rate)
+ sim_cost=7700 if sim_payment_type=='선납' else 0
+ return settlement,tax,settlement-tax-payback-sim_cost,transfer_fee
+
+def calc_wired_settlement(rebate,verbal,gift_certificate,gift_cost,deduction,payback,gift_return,tax_rate=.133):
+ # 유선 정산: 리베이트 + 구두추가 + 정산상품권 - 고객지급상품권 - 차감금액
+ settlement=rebate+verbal+gift_certificate-gift_cost-deduction
+ tax=round(settlement*tax_rate)
+ # 상품권 반납은 회수된 금액이므로 최종마진에 더합니다.
+ final_margin=settlement-tax-payback+gift_return
+ return settlement,tax,final_margin
+
+
+def current_branch_id():
+ try:return int(session.get('branch_id')) if session.get('branch_id') not in [None,''] else None
+ except:return None
+
+def is_admin():
+ return session.get('role')=='admin'
+
+def enforce_branch(branch_id):
+ if is_admin(): return
+ if not current_branch_id() or int(branch_id or 0)!=current_branch_id(): abort(403)
+
+def apply_branch_scope(query, model):
+ if not is_admin():
+  bid=current_branch_id()
+  if not bid:return query.filter(db.text('1=0'))
+  query=query.filter(model.branch_id==bid)
+ return query
+
+def sale_allowed(sale):
+ return bool(sale and (is_admin() or (current_branch_id() and sale.branch_id==current_branch_id())))
+
+def task_query_scoped():
+ q=CustomerTask.query.outerjoin(Sale,CustomerTask.sale_id==Sale.id)
+ if not is_admin():
+  bid=current_branch_id()
+  q=q.filter(Sale.branch_id==bid) if bid else q.filter(CustomerTask.id==-1)
+ return q
+
+def payback_query_scoped():
+ q=Payback.query.join(Sale,Payback.sale_id==Sale.id)
+ if not is_admin():
+  bid=current_branch_id()
+  q=q.filter(Sale.branch_id==bid) if bid else q.filter(Payback.id==-1)
+ return q
+
+def login_required(fn):
+ @wraps(fn)
+ def wrapped(*a,**kw):
+  if not session.get('user_id'):return redirect(url_for('login'))
+  return fn(*a,**kw)
+ return wrapped
+
+def admin_required(fn):
+ @wraps(fn)
+ def wrapped(*a,**kw):
+  if session.get('role')!='admin':abort(403)
+  return fn(*a,**kw)
+ return wrapped
+
+def _add_columns(table, cols):
+ inspector=db.inspect(db.engine)
+ if table not in inspector.get_table_names(): return
+ existing={c['name'] for c in inspector.get_columns(table)}
+ for name,sqltype in cols.items():
+  if name not in existing:
+   try: db.session.execute(text(f'ALTER TABLE "{table}" ADD COLUMN "{name}" {sqltype}')); db.session.commit()
+   except Exception: db.session.rollback()
+
+def upgrade_existing_sale():
+ _add_columns('sale',{
+  'partner_id':'INTEGER','inventory_id':'INTEGER','branch_id':'INTEGER','visit_source':'VARCHAR(50)',
+  'current_plan':'VARCHAR(100)','next_plan':'VARCHAR(100)','plan_change_due_date':'DATE',
+  'rebate':'INTEGER DEFAULT 0','verbal_extra':'INTEGER DEFAULT 0','deduction':'INTEGER DEFAULT 0',
+  'extra_support':'INTEGER DEFAULT 0','settlement_amount_v2':'INTEGER DEFAULT 0','tax_rate':'FLOAT DEFAULT 0.133',
+  'tax_amount':'INTEGER DEFAULT 0','customer_payback':'INTEGER DEFAULT 0','transfer_fee':'INTEGER DEFAULT 0',
+  'sim_payment_type':"VARCHAR(20) DEFAULT '없음'",'sim_fee':'INTEGER DEFAULT 7700','final_margin':'INTEGER DEFAULT 0',
+  'internet_carrier':'VARCHAR(30)','internet_subscriber':'VARCHAR(100)','internet_install_date':'DATE',
+  'internet_cancel_due_date':'DATE','payback_due_date':'DATE','created_at':'TIMESTAMP','updated_at':'TIMESTAMP'
+ })
+ _add_columns('user',{'display_name':'VARCHAR(50)','branch_id':'INTEGER','active':'BOOLEAN DEFAULT TRUE'})
+ _add_columns('inventory',{'branch_id':'INTEGER'})
+ _add_columns('wired_sale',{
+  'internet_plan':'VARCHAR(120)','internet_speed':'VARCHAR(20)','tv_plan':'VARCHAR(100)',
+  'rebate':'INTEGER DEFAULT 0','verbal_extra':'INTEGER DEFAULT 0',
+  'gift_certificate':'INTEGER DEFAULT 0','gift_cost':'INTEGER DEFAULT 0','deduction':'INTEGER DEFAULT 0',
+  'tax_rate':'FLOAT DEFAULT 0.133','tax_amount':'INTEGER DEFAULT 0',
+  'payback':'INTEGER DEFAULT 0','gift_return':'INTEGER DEFAULT 0',
+  'final_margin':'INTEGER DEFAULT 0'
+ })
+
+def seed_branches():
+ for idx,name in enumerate(['1호점','2호점','3호점'],1):
+  if not Branch.query.filter_by(name=name).first(): db.session.add(Branch(name=name,code=f'B{idx:02d}'))
+ db.session.commit()
+
+
+def seed_masters():
+ # 통신사 요금제는 관리자 기준정보 화면에서 언제든 추가/중지 가능
+ plan_seed={
+  'SK':['베스트 129','베스트 119','베스트 109','베스트 99','베스트 89',
+        '라이트 79','라이트 69','라이트 59','라이트 49','라이트 43','라이트 39','T플랜 세이브','ZEM플랜 스마트'],
+  'KT':['초이스 프리미엄','초이스 스페셜','초이스 베이직','베이직21GB(이월)','베이직','슬림','5G 주니어'],
+  'LG':['플러스플랜130','플러스플랜115','플러스플랜105','플러스플랜95','데이터플랜MAX',
+        '5G 프리미어 레귤러','5G 프리미어 에센셜']
+ }
+ for carrier,names in plan_seed.items():
+  for idx,name in enumerate(names):
+   if not PlanMaster.query.filter_by(carrier=carrier,name=name).first():
+    db.session.add(PlanMaster(carrier=carrier,name=name,active=True,sort_order=idx))
+
+ devices=[
+  ('삼성','갤럭시 S26','256GB,512GB','코발트 바이올렛,화이트,블랙,실버'),
+  ('삼성','갤럭시 S26+','256GB,512GB','코발트 바이올렛,화이트,블랙,실버'),
+  ('삼성','갤럭시 S26 울트라','256GB,512GB,1TB','블랙,화이트,실버,블루'),
+  ('삼성','갤럭시 Z 폴드8','256GB,512GB,1TB','블랙,실버,블루'),
+  ('삼성','갤럭시 Z 폴드8 울트라','512GB,1TB','블랙,실버'),
+  ('삼성','갤럭시 Z 플립8','256GB,512GB','블랙,화이트,블루,핑크'),
+  ('삼성','갤럭시 S25','256GB,512GB','네이비,실버 쉐도우,아이스블루,민트'),
+  ('삼성','갤럭시 S25+','256GB,512GB','네이비,실버 쉐도우,아이스블루,민트'),
+  ('삼성','갤럭시 S25 울트라','256GB,512GB,1TB','티타늄 블랙,티타늄 그레이,티타늄 실버블루'),
+  ('삼성','갤럭시 A56','128GB,256GB','블랙,그레이,올리브'),
+  ('애플','iPhone 17 Pro Max','256GB,512GB,1TB,2TB','실버,코스믹 오렌지,딥 블루'),
+  ('애플','iPhone 17 Pro','256GB,512GB,1TB','실버,코스믹 오렌지,딥 블루'),
+  ('애플','iPhone Air','256GB,512GB,1TB','스페이스 블랙,클라우드 화이트,라이트 골드,스카이 블루'),
+  ('애플','iPhone 17','256GB,512GB','블랙,화이트,미스트 블루,세이지,라벤더'),
+  ('애플','iPhone 17e','128GB,256GB,512GB','블랙,화이트'),
+  ('애플','iPhone 16','128GB,256GB,512GB','블랙,화이트,핑크,틸,울트라마린'),
+  ('애플','iPhone 16e','128GB,256GB,512GB','블랙,화이트')
+ ]
+ wired_seed={
+  'SK':{
+   'internet':[
+    ('광랜 (100M)','100M'),
+    ('기가라이트 (500M)','500M'),
+    ('기가 (1G)','1G')
+   ],
+   'tv':[
+    ('B tv 이코노미',None),
+    ('B tv 스탠다드',None),
+    ('B tv All',None),
+    ('B tv All+지상파',None),
+    ('B tv All+캐치온',None),
+    ('B tv All+캐치온+지상파',None),
+    ('B tv 미니',None)
+   ]
+  },
+  'KT':{
+   'internet':[
+    ('인터넷 슬림 (100M)','100M'),
+    ('인터넷 베이직 (500M)','500M'),
+    ('인터넷 에센스 (1G)','1G'),
+    ('요고 인터넷 슬림 와이파이 (100M)','100M'),
+    ('요고 인터넷 베이직 와이파이 (500M)','500M'),
+    ('요고 인터넷 에센스 와이파이 (1G)','1G')
+   ],
+   'tv':[
+    ('지니 TV 베이직',None),
+    ('지니 TV 라이트',None),
+    ('지니 TV 에센스',None),
+    ('지니 TV 모든G',None),
+    ('지니 TV 디즈니+ 모든G',None),
+    ('지니 TV VOD초이스',None),
+    ('지니 TV 슈퍼팩 초이스',None),
+    ('지니 TV 넷플릭스 초이스HD',None)
+   ]
+  },
+  'LG':{
+   'internet':[
+    ('너겟 라이트 100M','100M'),
+    ('너겟 라이트 500M','500M'),
+    ('너겟 라이트 1G','1G'),
+    ('너겟 100M','100M'),
+    ('너겟 500M','500M')
+   ],
+   'tv':[
+    ('실속형',None),
+    ('기본형',None),
+    ('고급형',None),
+    ('프리미엄',None),
+    ('기본형 방송패스',None),
+    ('프리미엄 방송패스',None),
+    ('프리미엄 VOD',None),
+    ('프리미엄 유플레이',None)
+   ]
+  }
+ }
+ for carrier,cats in wired_seed.items():
+  for category,rows in cats.items():
+   for idx,(name,speed) in enumerate(rows):
+    if not WiredProductMaster.query.filter_by(carrier=carrier,category=category,name=name).first():
+     db.session.add(WiredProductMaster(carrier=carrier,category=category,name=name,speed=speed,active=True,sort_order=idx))
+
+ for idx,(maker,model,caps,colors) in enumerate(devices):
+  if not DeviceMaster.query.filter_by(manufacturer=maker,model=model).first():
+   db.session.add(DeviceMaster(manufacturer=maker,model=model,capacities=caps,colors=colors,active=True,sort_order=idx))
+ db.session.commit()
 
 def prepare_database():
-
-    with app.app_context():
-
-        db.create_all()
-
-
-# =========================================================
-# 기존 DB 자동 업그레이드
-# =========================================================
-
-def upgrade_sale_table():
-
-    with app.app_context():
-
-        try:
-
-            db.create_all()
-
-            inspector = db.inspect(
-                db.engine
-            )
-
-            tables = inspector.get_table_names()
-
-            if "sale" not in tables:
-                return
-
-            existing_columns = {
-                column["name"]
-                for column in inspector.get_columns("sale")
-            }
-
-            new_columns = {
-
-                "customer_birth": "VARCHAR(20)",
-
-                "customer_gender": "VARCHAR(10)",
-
-                "opening_number": "VARCHAR(50)",
-
-                "manufacturer": "VARCHAR(50)",
-
-                "imei": "VARCHAR(100)",
-
-                "serial_number": "VARCHAR(100)",
-
-                "selection_discount": "VARCHAR(20)",
-
-                "official_subsidy": "VARCHAR(50)",
-
-                "additional_subsidy": "VARCHAR(50)",
-
-                "seller_subsidy": "VARCHAR(50)",
-
-                "monthly_installment": "VARCHAR(50)",
-
-                "additional_services": "TEXT",
-
-                "service_period": "VARCHAR(50)",
-
-                "gifts": "TEXT",
-
-                "gift_status": "VARCHAR(30)",
-
-                "old_device": "VARCHAR(100)",
-
-                "old_device_return": "VARCHAR(20)",
-
-                "trade_in_price": "VARCHAR(50)",
-
-                "assigned_staff": "VARCHAR(50)",
-
-                # 신규 조회 화면용
-                "settlement": "VARCHAR(50)",
-
-                "margin": "VARCHAR(50)",
-
-                "aftercare_status": "VARCHAR(50)"
-
-            }
-
-            missing_columns = {
-
-                name: column_type
-
-                for name, column_type
-                in new_columns.items()
-
-                if name not in existing_columns
-
-            }
-
-            if not missing_columns:
-                return
-
-            with db.engine.begin() as connection:
-
-                for column_name, column_type in missing_columns.items():
-
-                    if db.engine.dialect.name == "postgresql":
-
-                        connection.exec_driver_sql(
-                            f'''
-                            ALTER TABLE sale
-                            ADD COLUMN IF NOT EXISTS
-                            "{column_name}"
-                            {column_type}
-                            '''
-                        )
-
-                    elif db.engine.dialect.name == "sqlite":
-
-                        connection.exec_driver_sql(
-                            f'''
-                            ALTER TABLE sale
-                            ADD COLUMN
-                            "{column_name}"
-                            {column_type}
-                            '''
-                        )
-
-            print(
-                "Sale 테이블 신규 컬럼 추가 완료:",
-                ", ".join(
-                    missing_columns.keys()
-                )
-            )
-
-        except Exception as e:
-
-            print(
-                "Sale 테이블 자동 업그레이드 실패:",
-                str(e)
-            )
-
-
-# =========================================================
-# 관리자 계정 생성 / 확인
-# =========================================================
+ db.create_all(); upgrade_existing_sale(); seed_branches(); seed_masters()
 
 def sync_admin():
+ prepare_database(); u=os.environ.get('ADMIN_USERNAME','').strip(); p=os.environ.get('ADMIN_PASSWORD','')
+ if not u or not p:return
+ user=User.query.filter_by(username=u).first()
+ if not user:db.session.add(User(username=u,password_hash=generate_password_hash(p),role='admin'));db.session.commit();return
+ changed=False
+ if not check_password_hash(user.password_hash,p):user.password_hash=generate_password_hash(p);changed=True
+ if user.role!='admin':user.role='admin';changed=True
+ if changed:db.session.commit()
 
-    prepare_database()
+@app.context_processor
+def helpers():return dict(current_user=session.get('display_name') or session.get('username'),current_role=session.get('role'),current_branch_id=current_branch_id(),moneyfmt=lambda v:f'{money(v):,}')
 
-    username = os.environ.get(
-        "ADMIN_USERNAME",
-        ""
-    ).strip()
-
-    password = os.environ.get(
-        "ADMIN_PASSWORD",
-        ""
-    )
-
-    if not username or not password:
-        return False
-
-    user = User.query.filter_by(
-        username=username
-    ).first()
-
-    if user is None:
-
-        user = User(
-
-            username=username,
-
-            password_hash=generate_password_hash(
-                password
-            ),
-
-            role="admin"
-
-        )
-
-        db.session.add(user)
-
-        db.session.commit()
-
-    else:
-
-        changed = False
-
-        if not check_password_hash(
-            user.password_hash,
-            password
-        ):
-
-            user.password_hash = generate_password_hash(
-                password
-            )
-
-            changed = True
-
-        if user.role != "admin":
-
-            user.role = "admin"
-
-            changed = True
-
-        if changed:
-            db.session.commit()
-
-    return True
-
-
-# =========================================================
-# 로그인 확인
-# =========================================================
-
-def login_required(view):
-
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-
-        if not session.get("user_id"):
-
-            return redirect(
-                url_for("login")
-            )
-
-        return view(
-            *args,
-            **kwargs
-        )
-
-    return wrapped
-
-
-# =========================================================
-# 관리자 확인
-# =========================================================
-
-def admin_required(view):
-
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-
-        if session.get("role") != "admin":
-
-            abort(403)
-
-        return view(
-            *args,
-            **kwargs
-        )
-
-    return wrapped
-
-
-# =========================================================
-# 서버 상태
-# =========================================================
-
-@app.route("/health")
+@app.route('/health')
 def health():
-
-    try:
-
-        db.session.execute(
-            db.text("SELECT 1")
-        )
-
-        return {
-            "status": "ok",
-            "database": "connected"
-        }, 200
-
-    except Exception as e:
-
-        return {
-            "status": "error",
-            "database": "error",
-            "message": str(e)
-        }, 500
-
-
-# =========================================================
-# 로그인
-# =========================================================
-
-@app.route(
-    "/login",
-    methods=["GET", "POST"]
-)
+ try:db.session.execute(text('SELECT 1'));return {'status':'ok','database':'connected'}
+ except Exception as e:return {'status':'error','message':str(e)},500
+@app.route('/login',methods=['GET','POST'])
 def login():
+ try:sync_admin()
+ except Exception as e:return f'DB 연결 오류: {e}',500
+ if request.method=='POST':
+  user=User.query.filter_by(username=request.form.get('username','').strip()).first()
+  if user and user.active is False:
+   flash('비활성화된 직원 계정입니다. 관리자에게 문의해주세요.','error'); return render_template('login.html')
+  if user and check_password_hash(user.password_hash,request.form.get('password','')):
+   session.clear();session.update(user_id=user.id,username=user.username,display_name=user.display_name or user.username,role=user.role,branch_id=user.branch_id);return redirect(url_for('dashboard'))
+  flash('아이디 또는 비밀번호가 올바르지 않습니다.','error')
+ return render_template('login.html')
+@app.route('/logout')
+def logout():session.clear();return redirect(url_for('login'))
 
-    try:
-
-        sync_admin()
-
-    except Exception as e:
-
-        return (
-            f"데이터베이스 연결 오류: {str(e)}",
-            500
-        )
-
-    if request.method == "POST":
-
-        username = request.form.get(
-            "username",
-            ""
-        ).strip()
-
-        password = request.form.get(
-            "password",
-            ""
-        )
-
-        user = User.query.filter_by(
-            username=username
-        ).first()
-
-        if user and check_password_hash(
-            user.password_hash,
-            password
-        ):
-
-            session.clear()
-
-            session["user_id"] = user.id
-
-            session["username"] = user.username
-
-            session["role"] = user.role
-
-            return redirect(
-                url_for("dashboard")
-            )
-
-        flash(
-            "아이디 또는 비밀번호가 올바르지 않습니다."
-        )
-
-    return render_template(
-        "login.html"
-    )
-
-
-# =========================================================
-# 로그아웃
-# =========================================================
-
-@app.route("/logout")
-def logout():
-
-    session.clear()
-
-    return redirect(
-        url_for("login")
-    )
-
-
-# =========================================================
-# 대시보드
-# =========================================================
-
-@app.route("/")
+@app.route('/')
 @login_required
 def dashboard():
+ prepare_database(); today=date.today(); selected=parse_date(request.args.get('date')) or today
+ start=date(today.year,today.month,1); end=add_months(start,1)
+ tq=task_query_scoped()
+ tasks=tq.filter(CustomerTask.due_date==selected).order_by(CustomerTask.status.asc(),CustomerTask.id.desc()).all()
+ overdue=task_query_scoped().filter(CustomerTask.due_date<today,CustomerTask.status.in_(['처리예정','연락안됨','연기'])).order_by(CustomerTask.due_date.asc()).limit(50).all()
+ month_tasks=task_query_scoped().filter(CustomerTask.due_date>=start,CustomerTask.due_date<end).all()
+ counts={}
+ for t in month_tasks: counts[t.due_date.isoformat()]=counts.get(t.due_date.isoformat(),0)+1
+ sq=apply_branch_scope(Sale.query,Sale)
+ today_sale_items=sq.filter(Sale.opening_date==today).order_by(Sale.id.desc()).all()
+ pq=payback_query_scoped()
+ pending_paybacks=pq.filter(Payback.status!='완료').count()
+ today_paybacks=payback_query_scoped().filter(Payback.due_date==today,Payback.status!='완료').all()
+ branches={b.id:b for b in Branch.query.all()}
+ sales_map={s.id:s for s in Sale.query.filter(Sale.id.in_([p.sale_id for p in today_paybacks] or [0])).all()}
+ cal=calendar.Calendar(firstweekday=6); weeks=cal.monthdayscalendar(today.year,today.month)
+ return render_template('dashboard.html',today=today,selected=selected,tasks=tasks,overdue=overdue,counts=counts,weeks=weeks,year=today.year,month=today.month,today_sales=len(today_sale_items),today_sale_items=today_sale_items,pending_paybacks=pending_paybacks,today_paybacks=today_paybacks,sales_map=sales_map,branches=branches)
 
-    try:
+@app.post('/tasks/<int:task_id>/status')
+@login_required
+def task_status(task_id):
+ t=CustomerTask.query.get_or_404(task_id);
+ if t.sale_id:
+  enforce_branch(Sale.query.get_or_404(t.sale_id).branch_id)
+ status=request.form.get('status','처리예정'); old_due=t.due_date; t.status=status; t.result_memo=request.form.get('memo','').strip() or t.result_memo
+ if status=='완료':
+  t.completed_at=datetime.utcnow(); t.completed_by=session.get('display_name') or session.get('username')
+ else:
+  t.completed_at=None; t.completed_by=None
+ if status=='연기' and request.form.get('due_date'):
+  new_due=parse_date(request.form.get('due_date')) or t.due_date
+  if new_due!=old_due:
+   history=f'[연기 {datetime.now().strftime("%Y-%m-%d %H:%M")}] {old_due} → {new_due} / {session.get("display_name") or session.get("username")}'
+   t.result_memo=(t.result_memo+'\\n' if t.result_memo else '')+history
+  t.due_date=new_due
+ db.session.commit();flash('고객약속 상태가 변경되었습니다.','success');return redirect(request.referrer or url_for('dashboard'))
 
-        prepare_database()
+@app.route('/tasks/<int:task_id>/edit',methods=['GET','POST'])
+@login_required
+def task_edit(task_id):
+ t=CustomerTask.query.get_or_404(task_id)
+ if t.sale_id: enforce_branch(Sale.query.get_or_404(t.sale_id).branch_id)
+ if request.method=='POST':
+  old_due=t.due_date; t.task_type=request.form.get('task_type','기타'); t.title=request.form.get('title','').strip() or t.title
+  t.description=request.form.get('description'); t.due_date=parse_date(request.form.get('due_date')) or t.due_date; t.assigned_staff=request.form.get('assigned_staff'); t.status=request.form.get('status','처리예정'); t.result_memo=request.form.get('result_memo')
+  if t.due_date!=old_due:
+   log=f'[날짜수정 {datetime.now().strftime("%Y-%m-%d %H:%M")}] {old_due} → {t.due_date} / {session.get("display_name") or session.get("username")}'
+   t.result_memo=(t.result_memo+'\\n' if t.result_memo else '')+log
+  if t.status=='완료':
+   if not t.completed_at:t.completed_at=datetime.utcnow()
+   t.completed_by=session.get('display_name') or session.get('username')
+  else:
+   t.completed_at=None; t.completed_by=None
+  if t.task_type=='페이백 지급' and t.sale_id:
+   p=Payback.query.filter_by(sale_id=t.sale_id).first()
+   if p: p.due_date=t.due_date; p.status='완료' if t.status=='완료' else p.status
+  db.session.commit(); flash('고객약속이 수정되었습니다.','success'); return redirect(url_for('dashboard',date=t.due_date.isoformat()))
+ return render_template('task_edit.html',t=t,staff=(User.query.filter_by(active=True,branch_id=current_branch_id()).order_by(User.display_name).all() if not is_admin() else User.query.filter_by(active=True).order_by(User.display_name,User.username).all()))
 
-        today = date.today()
-
-        total = Customer.query.count()
-
-        today_start = datetime.combine(
-            today,
-            datetime.min.time()
-        )
-
-        tomorrow_start = datetime.combine(
-            today + timedelta(days=1),
-            datetime.min.time()
-        )
-
-        today_count = Customer.query.filter(
-            Customer.created_at >= today_start,
-            Customer.created_at < tomorrow_start
-        ).count()
-
-        recent = Customer.query.order_by(
-            Customer.created_at.desc()
-        ).limit(8).all()
-
-        recent_bookings = Booking.query.order_by(
-            Booking.created_at.desc()
-        ).limit(5).all()
-
-        all_bookings = Booking.query.order_by(
-            Booking.created_at.asc()
-        ).all()
-
-        calendar_bookings = []
-
-        for booking in all_bookings:
-
-            calendar_bookings.append({
-
-                "id": booking.id,
-
-                "name": booking.name,
-
-                "phone": booking.phone or "",
-
-                "visit_date": booking.visit_date or "",
-
-                "device": booking.device or "",
-
-                "memo": booking.memo or ""
-
-            })
-
-        today_bookings = []
-
-        today_string = str(today)
-
-        for booking in all_bookings:
-
-            visit_date = booking.visit_date or ""
-
-            if visit_date[:10] == today_string:
-
-                today_bookings.append(
-                    booking
-                )
-
-        total_sales = Sale.query.count()
-
-        today_sales = Sale.query.filter(
-            Sale.opening_date == today
-        ).count()
-
-    except Exception as e:
-
-        return (
-            f"데이터베이스 오류: {str(e)}",
-            500
-        )
-
-    return render_template(
-
-        "dashboard.html",
-
-        total=total,
-
-        today_count=today_count,
-
-        recent=recent,
-
-        bookings=recent_bookings,
-
-        today_bookings=today_bookings,
-
-        calendar_bookings=calendar_bookings,
-
-        total_sales=total_sales,
-
-        today_sales=today_sales
-
-    )
-
-
-# =========================================================
-# 고객 목록
-# =========================================================
-
-@app.route("/customers")
+@app.route('/customers')
 @login_required
 def customers():
+ prepare_database(); q=request.args.get('q','').strip(); month=request.args.get('month','').strip(); branch_id=request.args.get('branch_id','').strip()
+ if not is_admin(): branch_id=str(current_branch_id() or '')
+ query=Customer.query
+ if q: query=query.filter(or_(Customer.name.ilike(f'%{q}%'),Customer.phone.ilike(f'%{q}%')))
+ sale_scope=Sale.query
+ if branch_id:
+  try:sale_scope=sale_scope.filter(Sale.branch_id==int(branch_id))
+  except:pass
+ if month:
+  try:
+   y,m=map(int,month.split('-')); mstart=date(y,m,1); mend=add_months(mstart,1)
+   sale_scope=sale_scope.filter(Sale.opening_date>=mstart,Sale.opening_date<mend)
+  except: pass
+ phones=[r[0] for r in sale_scope.with_entities(Sale.customer_phone).distinct().all() if r[0]]
+ if branch_id or month: query=query.filter(Customer.phone.in_(phones or ['__none__']))
+ customers_list=query.order_by(Customer.created_at.desc()).all()
+ sale_map={}
+ for c in customers_list:
+  sq=Sale.query.filter_by(customer_phone=c.phone) if c.phone else Sale.query.filter(Sale.id==-1)
+  if branch_id:
+   try:sq=sq.filter(Sale.branch_id==int(branch_id))
+   except:pass
+  if month:
+   try:sq=sq.filter(Sale.opening_date>=mstart,Sale.opening_date<mend)
+   except:pass
+  sale_map[c.id]=sq.order_by(Sale.opening_date.desc(),Sale.id.desc()).first()
+ months=[r[0].strftime('%Y-%m') for r in db.session.query(Sale.opening_date).filter(Sale.opening_date.isnot(None)).order_by(Sale.opening_date.desc()).all()]
+ months=list(dict.fromkeys(months))
+ return render_template('customers.html',customers=customers_list,q=q,month=month,months=months,branches=Branch.query.filter_by(active=True).all(),branch_id=branch_id,sale_map=sale_map)
 
-    prepare_database()
+@app.route('/customers/<int:cid>')
+@login_required
+def customer_detail(cid):
+ c=Customer.query.get_or_404(cid)
+ sq=Sale.query.filter_by(customer_phone=c.phone) if c.phone else Sale.query.filter(Sale.id==-1)
+ if not is_admin(): sq=sq.filter(Sale.branch_id==current_branch_id())
+ sale_history=sq.order_by(Sale.opening_date.desc(),Sale.id.desc()).all()
+ if not sale_history and not is_admin(): abort(403)
+ sale_ids=[s.id for s in sale_history]
+ tasks=CustomerTask.query.filter(CustomerTask.sale_id.in_(sale_ids or [0])).order_by(CustomerTask.due_date.desc()).all()
+ open_tasks=[t for t in tasks if t.status not in ['완료','취소']]
+ paybacks=Payback.query.filter(Payback.sale_id.in_(sale_ids or [0])).order_by(Payback.due_date.desc()).all()
+ doc_counts=dict(db.session.query(SaleDocument.sale_id,db.func.count(SaleDocument.id)).filter(SaleDocument.sale_id.in_(sale_ids or [0])).group_by(SaleDocument.sale_id).all())
+ branches={b.id:b for b in Branch.query.all()}
+ return render_template('customer_detail.html',customer=c,sales=sale_history,tasks=tasks,open_tasks=open_tasks,paybacks=paybacks,doc_counts=doc_counts,branches=branches)
 
-    q = request.args.get(
-        "q",
-        ""
-    ).strip()
-
-    query = Customer.query
-
-    if q:
-
-        query = query.filter(
-
-            or_(
-
-                Customer.name.contains(q),
-
-                Customer.phone.contains(q)
-
-            )
-
-        )
-
-    customer_list = query.order_by(
-
-        Customer.created_at.desc()
-
-    ).all()
-
-    return render_template(
-
-        "customers.html",
-
-        customers=customer_list,
-
-        q=q
-
-    )
-
-
-# =========================================================
-# 고객 등록
-# =========================================================
-
-@app.route(
-    "/customers/new",
-    methods=["GET", "POST"]
-)
+@app.route('/customers/new',methods=['GET','POST'])
 @login_required
 def customer_new():
-
-    prepare_database()
-
-    if request.method == "POST":
-
-        name = request.form.get(
-            "name",
-            ""
-        ).strip()
-
-        if not name:
-
-            flash(
-                "고객 이름을 입력해주세요."
-            )
-
-            return redirect(
-                url_for("customer_new")
-            )
-
-        customer = Customer(
-
-            name=name,
-
-            phone=request.form.get(
-                "phone",
-                ""
-            ).strip(),
-
-            device=request.form.get(
-                "device",
-                ""
-            ).strip(),
-
-            carrier=request.form.get(
-                "carrier",
-                ""
-            ).strip(),
-
-            status=request.form.get(
-                "status",
-                "상담중"
-            ).strip(),
-
-            memo=request.form.get(
-                "memo",
-                ""
-            ).strip()
-
-        )
-
-        db.session.add(customer)
-
-        db.session.commit()
-
-        flash(
-            "고객이 등록되었습니다."
-        )
-
-        return redirect(
-            url_for("customers")
-        )
-
-    return render_template(
-        "customer_form.html",
-        customer=None
-    )
-
-
-# =========================================================
-# 고객 수정
-# =========================================================
-
-@app.route(
-    "/customers/<int:customer_id>/edit",
-    methods=["GET", "POST"]
-)
+ if request.method=='POST':
+  name=request.form.get('name','').strip()
+  if not name:flash('고객명을 입력해주세요.','error');return redirect(url_for('customer_new'))
+  db.session.add(Customer(name=name,phone=request.form.get('phone','').strip(),carrier=request.form.get('carrier',''),status=request.form.get('status','상담중'),memo=request.form.get('memo','')));db.session.commit();flash('고객이 등록되었습니다.','success');return redirect(url_for('customers'))
+ return render_template('customer_form.html',customer=None)
+@app.route('/customers/<int:cid>/edit',methods=['GET','POST'])
 @login_required
-def customer_edit(customer_id):
+def customer_edit(cid):
+ c=Customer.query.get_or_404(cid)
+ if not is_admin():
+  if not (c.phone and Sale.query.filter_by(customer_phone=c.phone,branch_id=current_branch_id()).first()): abort(403)
+ if request.method=='POST':
+  c.name=request.form.get('name','').strip();c.phone=request.form.get('phone','').strip();c.carrier=request.form.get('carrier','');c.status=request.form.get('status','상담중');c.memo=request.form.get('memo','');db.session.commit();flash('고객정보가 수정되었습니다.','success');return redirect(url_for('customers'))
+ return render_template('customer_form.html',customer=c)
 
-    prepare_database()
-
-    customer = Customer.query.get_or_404(
-        customer_id
-    )
-
-    if request.method == "POST":
-
-        customer.name = request.form.get(
-            "name",
-            ""
-        ).strip()
-
-        customer.phone = request.form.get(
-            "phone",
-            ""
-        ).strip()
-
-        customer.device = request.form.get(
-            "device",
-            ""
-        ).strip()
-
-        customer.carrier = request.form.get(
-            "carrier",
-            ""
-        ).strip()
-
-        customer.status = request.form.get(
-            "status",
-            "상담중"
-        ).strip()
-
-        customer.memo = request.form.get(
-            "memo",
-            ""
-        ).strip()
-
-        db.session.commit()
-
-        flash(
-            "고객 정보가 수정되었습니다."
-        )
-
-        return redirect(
-            url_for("customers")
-        )
-
-    return render_template(
-        "customer_form.html",
-        customer=customer
-    )
-
-
-# =========================================================
-# 고객 삭제
-# =========================================================
-
-@app.route(
-    "/customers/<int:customer_id>/delete",
-    methods=["POST"]
-)
+@app.post('/customers/<int:cid>/delete')
 @login_required
 @admin_required
-def customer_delete(customer_id):
+def customer_delete(cid):
+ c=Customer.query.get_or_404(cid)
+ if c.phone and Sale.query.filter_by(customer_phone=c.phone).count():
+  flash('개통이력이 있는 고객은 삭제할 수 없습니다. 고객정보 수정으로 관리해주세요.','error'); return redirect(url_for('customers'))
+ CustomerTask.query.filter_by(customer_id=c.id).delete(synchronize_session=False); db.session.delete(c); db.session.commit()
+ flash('고객이 삭제되었습니다.','success'); return redirect(url_for('customers'))
 
-    prepare_database()
-
-    customer = Customer.query.get_or_404(
-        customer_id
-    )
-
-    db.session.delete(customer)
-
-    db.session.commit()
-
-    flash(
-        "고객 정보가 삭제되었습니다."
-    )
-
-    return redirect(
-        url_for("customers")
-    )
-
-
-# =========================================================
-# 예약 관리
-# =========================================================
-
-@app.route(
-    "/bookings",
-    methods=["GET", "POST"]
-)
+@app.route('/inventory')
 @login_required
-def bookings():
+def inventory():
+ q=request.args.get('q','').strip(); status=request.args.get('status','').strip(); branch_id=request.args.get('branch_id','').strip()
+ query=Inventory.query
+ if not is_admin():
+  branch_id=str(current_branch_id() or ''); query=query.filter(Inventory.branch_id==current_branch_id()) if current_branch_id() else query.filter(Inventory.id==-1)
+ elif branch_id:
+  try:query=query.filter(Inventory.branch_id==int(branch_id))
+  except:pass
+ if q: query=query.filter(or_(Inventory.serial_number.ilike(f'%{q}%'),Inventory.model.ilike(f'%{q}%'),Inventory.color.ilike(f'%{q}%')))
+ if status: query=query.filter_by(status=status)
+ items=query.order_by(Inventory.received_date.desc(),Inventory.id.desc()).all()
+ partners={p.id:p for p in Partner.query.all()}; branches={b.id:b for b in Branch.query.all()}; today=date.today()
+ return render_template('inventory.html',items=items,partners=partners,branches=branches,branch_list=Branch.query.filter_by(active=True).order_by(Branch.id).all(),q=q,status=status,branch_id=branch_id,today=today)
 
-    prepare_database()
+@app.route('/inventory/new',methods=['GET','POST'])
+@login_required
+def inventory_new():
+ partners=Partner.query.filter_by(active=True).order_by(Partner.name).all()
+ branches=Branch.query.filter_by(active=True).order_by(Branch.name).all()
+ device_models=DeviceMaster.query.filter_by(active=True).order_by(DeviceMaster.manufacturer,DeviceMaster.sort_order,DeviceMaster.model).all(); device_master_data=[{'manufacturer':d.manufacturer,'model':d.model,'capacities':d.capacities or '','colors':d.colors or ''} for d in device_models]
+ if request.method=='POST':
+  serial=request.form.get('serial_number','').strip()
+  if not serial or not request.form.get('model','').strip():flash('일련번호와 모델명은 필수입니다.','error');return redirect(url_for('inventory_new'))
+  if Inventory.query.filter_by(serial_number=serial).first():flash('이미 등록된 일련번호입니다.','error');return redirect(url_for('inventory_new'))
+  branch_id=request.form.get('branch_id') or None
+  if not is_admin(): branch_id=current_branch_id()
+  if not branch_id: flash('보유지점을 지정해주세요.','error'); return redirect(url_for('inventory_new'))
+  item=Inventory(serial_number=serial,partner_id=request.form.get('partner_id') or None,carrier=request.form.get('carrier'),manufacturer=request.form.get('manufacturer'),model=request.form.get('model').strip(),capacity=request.form.get('capacity'),color=request.form.get('color'),received_date=parse_date(request.form.get('received_date')) or date.today(),purchase_price=money(request.form.get('purchase_price')),storage_location=request.form.get('storage_location'),branch_id=branch_id,status='보유중',memo=request.form.get('memo'))
+  db.session.add(item);db.session.flush()
+  db.session.add(InventoryMovement(inventory_id=item.id,action='입고등록',to_branch_id=item.branch_id,to_status='보유중',processed_by=session.get('display_name') or session.get('username'),memo=item.memo))
+  db.session.commit();flash('단말기가 입고 등록되었습니다.','success');return redirect(url_for('inventory'))
+ return render_template('inventory_form.html',partners=partners,branches=branches,today=date.today().isoformat(),item=None,device_models=device_models,device_master_data=device_master_data)
 
-    if request.method == "POST":
-
-        name = request.form.get(
-            "name",
-            ""
-        ).strip()
-
-        if not name:
-
-            flash(
-                "예약자 이름을 입력해주세요."
-            )
-
-            return redirect(
-                url_for("bookings")
-            )
-
-        booking = Booking(
-
-            name=name,
-
-            phone=request.form.get(
-                "phone",
-                ""
-            ).strip(),
-
-            visit_date=request.form.get(
-                "visit_date",
-                ""
-            ).strip(),
-
-            device=request.form.get(
-                "device",
-                ""
-            ).strip(),
-
-            memo=request.form.get(
-                "memo",
-                ""
-            ).strip()
-
-        )
-
-        db.session.add(booking)
-
-        db.session.commit()
-
-        flash(
-            "예약이 등록되었습니다."
-        )
-
-        return redirect(
-            url_for("bookings")
-        )
-
-    booking_list = Booking.query.order_by(
-        Booking.created_at.desc()
-    ).all()
-
-    return render_template(
-        "bookings.html",
-        bookings=booking_list
-    )
+@app.get('/api/inventory/<path:serial>')
+@login_required
+def inventory_lookup(serial):
+ i=Inventory.query.filter_by(serial_number=serial).first()
+ if not i:return jsonify({'ok':False}),404
+ enforce_branch(i.branch_id)
+ p=Partner.query.get(i.partner_id) if i.partner_id else None
+ b=Branch.query.get(i.branch_id) if i.branch_id else None
+ return jsonify({'ok':True,'id':i.id,'serial_number':i.serial_number,'model':i.model,'capacity':i.capacity or '','color':i.color or '','carrier':i.carrier or '','manufacturer':i.manufacturer or '','partner_id':i.partner_id,'partner':p.name if p else '','branch_id':i.branch_id,'branch':b.name if b else '','status':i.status})
 
 
-# =========================================================
-# 신규개통 등록
-# =========================================================
+@app.route('/inventory/<int:iid>')
+@login_required
+def inventory_detail(iid):
+ item=Inventory.query.get_or_404(iid)
+ enforce_branch(item.branch_id)
+ partner=Partner.query.get(item.partner_id) if item.partner_id else None
+ branch=Branch.query.get(item.branch_id) if item.branch_id else None
+ moves=InventoryMovement.query.filter_by(inventory_id=item.id).order_by(InventoryMovement.created_at.desc(),InventoryMovement.id.desc()).all()
+ branch_map={b.id:b for b in Branch.query.all()}
+ sale=Sale.query.get(item.sale_id) if item.sale_id else None
+ return render_template('inventory_detail.html',item=item,partner=partner,branch=branch,moves=moves,branch_map=branch_map,sale=sale)
 
-@app.route(
-    "/sales/new",
-    methods=["GET", "POST"]
-)
+@app.route('/inventory/<int:iid>/edit',methods=['GET','POST'])
+@login_required
+def inventory_edit(iid):
+ item=Inventory.query.get_or_404(iid)
+ enforce_branch(item.branch_id)
+ if request.method=='POST':
+  old_branch=item.branch_id; old_status=item.status
+  item.partner_id=request.form.get('partner_id') or None; item.carrier=request.form.get('carrier'); item.manufacturer=request.form.get('manufacturer')
+  item.model=request.form.get('model','').strip() or item.model; item.capacity=request.form.get('capacity'); item.color=request.form.get('color')
+  item.received_date=parse_date(request.form.get('received_date')) or item.received_date; item.purchase_price=money(request.form.get('purchase_price'))
+  item.storage_location=request.form.get('storage_location'); item.memo=request.form.get('memo')
+  new_branch=request.form.get('branch_id')
+  if item.status!='판매완료': item.branch_id=int(new_branch) if new_branch else None
+  db.session.add(InventoryMovement(inventory_id=item.id,action='정보수정',from_branch_id=old_branch,to_branch_id=item.branch_id,from_status=old_status,to_status=item.status,processed_by=session.get('display_name') or session.get('username'),memo='재고정보 수정'))
+  db.session.commit(); flash('재고정보가 수정되었습니다.','success'); return redirect(url_for('inventory_detail',iid=item.id))
+ device_models=DeviceMaster.query.filter_by(active=True).order_by(DeviceMaster.manufacturer,DeviceMaster.sort_order,DeviceMaster.model).all()
+ device_master_data=[{'manufacturer':d.manufacturer,'model':d.model,'capacities':d.capacities or '','colors':d.colors or ''} for d in device_models]
+ return render_template('inventory_form.html',partners=Partner.query.filter_by(active=True).order_by(Partner.name).all(),branches=Branch.query.filter_by(active=True).order_by(Branch.id).all(),today=item.received_date.isoformat(),item=item,device_models=device_models,device_master_data=device_master_data)
+
+@app.route('/inventory/<int:iid>/move',methods=['GET','POST'])
+@login_required
+def inventory_move(iid):
+ item=Inventory.query.get_or_404(iid)
+ enforce_branch(item.branch_id)
+ if not is_admin(): abort(403)
+ if item.status in ['판매완료','거래처반납','반품']:
+  flash('판매완료/반품 처리된 단말기는 지점이동할 수 없습니다.','error'); return redirect(url_for('inventory_detail',iid=iid))
+ if request.method=='POST':
+  to_branch=request.form.get('to_branch_id')
+  if not to_branch: flash('이동할 지점을 선택해주세요.','error'); return redirect(url_for('inventory_move',iid=iid))
+  to_branch=int(to_branch)
+  if item.branch_id==to_branch: flash('현재 보유지점과 동일합니다.','error'); return redirect(url_for('inventory_move',iid=iid))
+  old=item.branch_id; old_status=item.status
+  item.branch_id=to_branch; item.status='보유중'
+  db.session.add(InventoryMovement(inventory_id=item.id,action='지점이동',from_branch_id=old,to_branch_id=to_branch,from_status=old_status,to_status='보유중',processed_by=session.get('display_name') or session.get('username'),memo=request.form.get('memo')))
+  db.session.commit(); flash('지점이동이 완료되었습니다.','success'); return redirect(url_for('inventory_detail',iid=iid))
+ return render_template('inventory_move.html',item=item,branches=Branch.query.filter_by(active=True).order_by(Branch.id).all(),current_branch=Branch.query.get(item.branch_id) if item.branch_id else None,mode='move')
+
+@app.post('/inventory/<int:iid>/action')
+@login_required
+def inventory_action(iid):
+ item=Inventory.query.get_or_404(iid); enforce_branch(item.branch_id); action=request.form.get('action',''); old_status=item.status; old_branch=item.branch_id
+ if item.status=='판매완료':
+  flash('판매완료 단말기는 판매일보에서 개통건을 수정/삭제한 뒤 처리해주세요.','error'); return redirect(url_for('inventory_detail',iid=iid))
+ if action=='예약':
+  item.status='예약'
+ elif action=='예약취소':
+  item.status='보유중'
+ elif action=='회수':
+  to_branch=request.form.get('to_branch_id')
+  if not to_branch: flash('회수할 지점을 선택해주세요.','error'); return redirect(url_for('inventory_detail',iid=iid))
+  item.branch_id=int(to_branch); item.status='보유중'
+ elif action=='거래처반납':
+  item.status='거래처반납'
+ elif action=='반품':
+  item.status='반품'
+ else:
+  abort(400)
+ db.session.add(InventoryMovement(inventory_id=item.id,action=action,from_branch_id=old_branch,to_branch_id=item.branch_id,from_status=old_status,to_status=item.status,processed_by=session.get('display_name') or session.get('username'),memo=request.form.get('memo')))
+ db.session.commit(); flash(f'{action} 처리가 완료되었습니다.','success'); return redirect(url_for('inventory_detail',iid=iid))
+
+@app.post('/inventory/<int:iid>/delete')
+@login_required
+@admin_required
+def inventory_delete(iid):
+ item=Inventory.query.get_or_404(iid)
+ if item.sale_id or item.status=='판매완료':
+  flash('판매 이력이 있는 재고는 삭제할 수 없습니다.','error'); return redirect(url_for('inventory_detail',iid=iid))
+ movement_count=InventoryMovement.query.filter_by(inventory_id=item.id).count()
+ if movement_count>1:
+  flash('이동/상태변경 이력이 있는 재고는 삭제할 수 없습니다. 반품 또는 거래처반납으로 처리해주세요.','error'); return redirect(url_for('inventory_detail',iid=iid))
+ InventoryMovement.query.filter_by(inventory_id=item.id).delete(synchronize_session=False); db.session.delete(item); db.session.commit()
+ flash('잘못 등록된 재고가 삭제되었습니다.','success'); return redirect(url_for('inventory'))
+
+@app.route('/partners')
+@login_required
+def partners():
+ plist=Partner.query.order_by(Partner.name).all();rows=[]
+ for p in plist:
+  stock=Inventory.query.filter_by(partner_id=p.id,status='보유중').count();monthly=Sale.query.filter(Sale.partner_id==p.id,Sale.opening_date>=date.today().replace(day=1)).all();unsettled=sum(1 for s in monthly if s.status!='정산완료');rows.append((p,stock,len(monthly),sum(s.settlement_amount_v2 or money(s.settlement) for s in monthly),unsettled))
+ return render_template('partners.html',rows=rows)
+@app.route('/partners/new',methods=['GET','POST'])
+@login_required
+def partner_new():
+ if request.method=='POST':
+  name=request.form.get('name','').strip()
+  if not name:flash('거래처명을 입력해주세요.','error');return redirect(url_for('partner_new'))
+  if Partner.query.filter_by(name=name).first():flash('이미 등록된 거래처입니다.','error');return redirect(url_for('partner_new'))
+  db.session.add(Partner(name=name,category=request.form.get('category'),contact_name=request.form.get('contact_name'),phone=request.form.get('phone'),settlement_cycle=request.form.get('settlement_cycle'),memo=request.form.get('memo')));db.session.commit();flash('거래처가 등록되었습니다.','success');return redirect(url_for('partners'))
+ return render_template('partner_form.html')
+
+
+@app.route('/branches')
+@login_required
+def branches():
+ rows=[]
+ for b in Branch.query.order_by(Branch.id).all():
+  rows.append((b,Inventory.query.filter_by(branch_id=b.id,status='보유중').count(),Sale.query.filter_by(branch_id=b.id).count(),User.query.filter_by(branch_id=b.id).count()))
+ return render_template('branches.html',rows=rows)
+
+@app.route('/branches/new',methods=['GET','POST'])
+@login_required
+@admin_required
+def branch_new():
+ if request.method=='POST':
+  name=request.form.get('name','').strip()
+  if not name: flash('지점명을 입력해주세요.','error'); return redirect(url_for('branch_new'))
+  db.session.add(Branch(name=name,code=request.form.get('code'),address=request.form.get('address'),phone=request.form.get('phone'),manager_name=request.form.get('manager_name'),memo=request.form.get('memo'),active=True)); db.session.commit()
+  flash('지점이 등록되었습니다.','success'); return redirect(url_for('branches'))
+ return render_template('branch_form.html',branch=None)
+
+@app.route('/branches/<int:bid>/edit',methods=['GET','POST'])
+@login_required
+@admin_required
+def branch_edit(bid):
+ b=Branch.query.get_or_404(bid)
+ if request.method=='POST':
+  b.name=request.form.get('name','').strip(); b.code=request.form.get('code'); b.address=request.form.get('address'); b.phone=request.form.get('phone'); b.manager_name=request.form.get('manager_name'); b.memo=request.form.get('memo'); b.active=request.form.get('active')=='1'
+  db.session.commit(); flash('지점정보가 수정되었습니다.','success'); return redirect(url_for('branches'))
+ return render_template('branch_form.html',branch=b)
+
+@app.route('/partners/<int:pid>/edit',methods=['GET','POST'])
+@login_required
+def partner_edit(pid):
+ p=Partner.query.get_or_404(pid)
+ if request.method=='POST':
+  p.name=request.form.get('name','').strip(); p.category=request.form.get('category'); p.contact_name=request.form.get('contact_name'); p.phone=request.form.get('phone'); p.settlement_cycle=request.form.get('settlement_cycle'); p.memo=request.form.get('memo'); p.active=request.form.get('active')=='1'
+  db.session.commit(); flash('거래처가 수정되었습니다.','success'); return redirect(url_for('partners'))
+ return render_template('partner_form.html',partner=p)
+
+@app.post('/partners/<int:pid>/delete')
+@login_required
+@admin_required
+def partner_delete(pid):
+ p=Partner.query.get_or_404(pid)
+ if Inventory.query.filter_by(partner_id=p.id).count() or Sale.query.filter_by(partner_id=p.id).count():
+  flash('재고/판매 이력이 있는 거래처는 삭제할 수 없습니다. 비활성으로 변경해주세요.','error'); return redirect(url_for('partners'))
+ db.session.delete(p); db.session.commit(); flash('거래처가 삭제되었습니다.','success'); return redirect(url_for('partners'))
+
+@app.route('/sales/new',methods=['GET','POST'])
 @login_required
 def sale_new():
-
-    prepare_database()
-
-    if request.method == "POST":
-
-        customer_name = request.form.get(
-            "customer_name",
-            ""
-        ).strip()
-
-        if not customer_name:
-
-            flash(
-                "고객명을 입력해주세요."
-            )
-
-            return redirect(
-                url_for("sale_new")
-            )
-
-        opening_date_text = request.form.get(
-            "opening_date",
-            ""
-        ).strip()
-
-        if opening_date_text:
-
-            try:
-
-                opening_date = datetime.strptime(
-                    opening_date_text,
-                    "%Y-%m-%d"
-                ).date()
-
-            except ValueError:
-
-                flash(
-                    "개통일 형식이 올바르지 않습니다."
-                )
-
-                return redirect(
-                    url_for("sale_new")
-                )
-
-        else:
-
-            opening_date = date.today()
-
-        # =================================================
-        # 금액
-        # =================================================
-
-        device_price = request.form.get(
-            "device_price",
-            ""
-        ).replace(",", "").strip()
-
-        official_subsidy = request.form.get(
-            "official_subsidy",
-            ""
-        ).replace(",", "").strip()
-
-        additional_subsidy = request.form.get(
-            "additional_subsidy",
-            ""
-        ).replace(",", "").strip()
-
-        seller_subsidy = request.form.get(
-            "seller_subsidy",
-            ""
-        ).replace(",", "").strip()
-
-        subsidy = request.form.get(
-            "subsidy",
-            ""
-        ).replace(",", "").strip()
-
-        installment_price = request.form.get(
-            "installment_price",
-            ""
-        ).replace(",", "").strip()
-
-        cash_price = request.form.get(
-            "cash_price",
-            ""
-        ).replace(",", "").strip()
-
-        monthly_installment = request.form.get(
-            "monthly_installment",
-            ""
-        ).replace(",", "").strip()
-
-        monthly_payment = request.form.get(
-            "monthly_payment",
-            ""
-        ).replace(",", "").strip()
-
-        trade_in_price = request.form.get(
-            "trade_in_price",
-            ""
-        ).replace(",", "").strip()
-
-        settlement = request.form.get(
-            "settlement",
-            ""
-        ).replace(",", "").strip()
-
-        margin = request.form.get(
-            "margin",
-            ""
-        ).replace(",", "").strip()
-
-        # =================================================
-        # Sale 생성
-        # =================================================
-
-        sale = Sale(
-
-            customer_name=customer_name,
-
-            customer_phone=request.form.get(
-                "customer_phone",
-                ""
-            ).strip(),
-
-            customer_birth=request.form.get(
-                "customer_birth",
-                ""
-            ).strip(),
-
-            customer_gender=request.form.get(
-                "customer_gender",
-                ""
-            ).strip(),
-
-            opening_date=opening_date,
-
-            carrier=request.form.get(
-                "carrier",
-                ""
-            ).strip(),
-
-            opening_type=request.form.get(
-                "opening_type",
-                ""
-            ).strip(),
-
-            status=request.form.get(
-                "status",
-                "개통완료"
-            ).strip(),
-
-            opening_number=request.form.get(
-                "opening_number",
-                ""
-            ).strip(),
-
-            manufacturer=request.form.get(
-                "manufacturer",
-                ""
-            ).strip(),
-
-            device=request.form.get(
-                "device",
-                ""
-            ).strip(),
-
-            color=request.form.get(
-                "color",
-                ""
-            ).strip(),
-
-            storage=request.form.get(
-                "storage",
-                ""
-            ).strip(),
-
-            imei=request.form.get(
-                "imei",
-                ""
-            ).strip(),
-
-            serial_number=request.form.get(
-                "serial_number",
-                ""
-            ).strip(),
-
-            plan=request.form.get(
-                "plan",
-                ""
-            ).strip(),
-
-            contract_type=request.form.get(
-                "contract_type",
-                ""
-            ).strip(),
-
-            installment_months=request.form.get(
-                "installment_months",
-                ""
-            ).strip(),
-
-            selection_discount=request.form.get(
-                "selection_discount",
-                ""
-            ).strip(),
-
-            device_price=device_price,
-
-            official_subsidy=official_subsidy,
-
-            additional_subsidy=additional_subsidy,
-
-            seller_subsidy=seller_subsidy,
-
-            subsidy=subsidy,
-
-            installment_price=installment_price,
-
-            cash_price=cash_price,
-
-            monthly_installment=monthly_installment,
-
-            monthly_payment=monthly_payment,
-
-            settlement=settlement,
-
-            margin=margin,
-
-            additional_services=request.form.get(
-                "additional_services",
-                ""
-            ).strip(),
-
-            service_period=request.form.get(
-                "service_period",
-                ""
-            ).strip(),
-
-            gifts=request.form.get(
-                "gifts",
-                ""
-            ).strip(),
-
-            gift_status=request.form.get(
-                "gift_status",
-                ""
-            ).strip(),
-
-            aftercare_status=request.form.get(
-                "aftercare_status",
-                ""
-            ).strip(),
-
-            old_device=request.form.get(
-                "old_device",
-                ""
-            ).strip(),
-
-            old_device_return=request.form.get(
-                "old_device_return",
-                ""
-            ).strip(),
-
-            trade_in_price=trade_in_price,
-
-            assigned_staff=request.form.get(
-                "assigned_staff",
-                ""
-            ).strip(),
-
-            created_by=session.get(
-                "username",
-                ""
-            ),
-
-            memo=request.form.get(
-                "memo",
-                ""
-            ).strip()
-
-        )
-
-        db.session.add(sale)
-
-        db.session.commit()
-
-        flash(
-            "신규개통 정보가 등록되었습니다."
-        )
-
-        return redirect(
-            url_for("sales")
-        )
-
-    staff_list = User.query.filter_by(
-        role="staff"
-    ).order_by(
-        User.username.asc()
-    ).all()
-
-    return render_template(
-
-        "sale_form.html",
-
-        sale=None,
-
-        staff_list=staff_list,
-
-        today=date.today().isoformat()
-
-    )
-
-
-# =========================================================
-# 개통 목록 / 개통건 조회
-# =========================================================
-
-@app.route("/sales")
+ prepare_database(); staff=(User.query.filter_by(active=True,branch_id=current_branch_id()).order_by(User.display_name).all() if not is_admin() else User.query.filter_by(active=True).order_by(User.display_name,User.username).all());partners=Partner.query.filter_by(active=True).order_by(Partner.name).all();branches=(Branch.query.filter_by(id=current_branch_id()).all() if not is_admin() else Branch.query.filter_by(active=True).order_by(Branch.id).all());plans=PlanMaster.query.filter_by(active=True).order_by(PlanMaster.carrier,PlanMaster.sort_order,PlanMaster.name).all(); plan_data=[{'carrier':p.carrier,'name':p.name} for p in plans]
+ if request.method=='POST':
+  name=request.form.get('customer_name','').strip(); opening=parse_date(request.form.get('opening_date')) or date.today()
+  if not name:flash('고객명을 입력해주세요.','error');return redirect(url_for('sale_new'))
+  phone=request.form.get('customer_phone','').strip(); customer=Customer.query.filter_by(phone=phone).first() if phone else None
+  if not customer:customer=Customer(name=name,phone=phone,carrier=request.form.get('carrier'),status='개통고객');db.session.add(customer);db.session.flush()
+  serial=request.form.get('serial_number','').strip(); inv=Inventory.query.filter_by(serial_number=serial).first() if serial else None
+  rebate=money(request.form.get('rebate'));verbal=money(request.form.get('verbal_extra'));deduct=money(request.form.get('deduction'));support=money(request.form.get('extra_support'));payback=money(request.form.get('customer_payback'));opening_type=request.form.get('opening_type');sim_type=request.form.get('sim_payment_type','없음');settlement,tax,margin,transfer_fee=calc_settlement(rebate,verbal,deduct,support,payback,opening_type,sim_type)
+  plan_due=opening+timedelta(days=183) if request.form.get('next_plan','').strip() else None
+  internet_due=parse_date(request.form.get('internet_cancel_due_date'));payback_due=parse_date(request.form.get('payback_due_date'))
+  sale=Sale(customer_name=name,customer_phone=phone,customer_birth=request.form.get('customer_birth'),opening_date=opening,carrier=request.form.get('carrier'),opening_type=opening_type,status='개통완료',manufacturer=(inv.manufacturer if inv else request.form.get('manufacturer')),device=(inv.model if inv else request.form.get('device')),color=(inv.color if inv else request.form.get('color')),storage=(inv.capacity if inv else request.form.get('storage')),serial_number=serial,plan=request.form.get('current_plan'),current_plan=request.form.get('current_plan'),next_plan=request.form.get('next_plan'),plan_change_due_date=plan_due,partner_id=(inv.partner_id if inv else (request.form.get('partner_id') or None)),inventory_id=(inv.id if inv else None),visit_source=request.form.get('visit_source'),branch_id=(current_branch_id() if not is_admin() else (request.form.get('branch_id') or None)),assigned_staff=request.form.get('assigned_staff') or session.get('display_name') or session.get('username'),created_by=session.get('display_name') or session.get('username'),rebate=rebate,verbal_extra=verbal,deduction=deduct,extra_support=support,settlement_amount_v2=settlement,tax_rate=.133,tax_amount=tax,customer_payback=payback,transfer_fee=transfer_fee,sim_payment_type=sim_type,sim_fee=7700,final_margin=margin,settlement=str(settlement),margin=str(margin),internet_carrier=request.form.get('internet_carrier'),internet_subscriber=request.form.get('internet_subscriber'),internet_install_date=parse_date(request.form.get('internet_install_date')),internet_cancel_due_date=internet_due,payback_due_date=payback_due,memo=request.form.get('memo'))
+  db.session.add(sale);db.session.flush()
+  if inv:inv.status='판매완료';inv.sale_id=sale.id
+  if plan_due:db.session.add(CustomerTask(customer_id=customer.id,sale_id=sale.id,task_type='요금제 변경',title=f'{name} 요금제 변경',description=f"{request.form.get('current_plan','')} → {request.form.get('next_plan','')}",due_date=plan_due,assigned_staff=sale.assigned_staff,auto_created=True))
+  names=request.form.getlist('addon_name[]');rules=request.form.getlist('addon_rule[]')
+  for addon_name,rule in zip(names,rules):
+   addon_name=addon_name.strip()
+   if not addon_name:continue
+   due=due_from_rule(opening,rule);db.session.add(SaleAddon(sale_id=sale.id,name=addon_name,retention_rule=rule,cancellation_due_date=due))
+   if due:db.session.add(CustomerTask(customer_id=customer.id,sale_id=sale.id,task_type='부가서비스 해지',title=f'{name} 부가서비스 해지',description=f'{addon_name} · {rule}',due_date=due,assigned_staff=sale.assigned_staff,auto_created=True))
+  if internet_due:db.session.add(CustomerTask(customer_id=customer.id,sale_id=sale.id,task_type='인터넷 해지',title=f'{name} 인터넷 해지',description=request.form.get('internet_carrier',''),due_date=internet_due,assigned_staff=sale.assigned_staff,auto_created=True))
+  if payback>0:
+   db.session.add(Payback(sale_id=sale.id,customer_id=customer.id,amount=payback,due_date=payback_due,status='처리예정',bank=request.form.get('bank'),account_number=request.form.get('account_number'),account_holder=request.form.get('account_holder'),memo=request.form.get('payback_memo')))
+   if payback_due:db.session.add(CustomerTask(customer_id=customer.id,sale_id=sale.id,task_type='페이백 지급',title=f'{name} 페이백 지급',description=f'{payback:,}원',due_date=payback_due,assigned_staff=sale.assigned_staff,auto_created=True))
+  db.session.commit();flash('개통 등록이 완료되었습니다. 재고·판매일보·고객약속·페이백이 자동 반영되었습니다.','success');return redirect(url_for('sales'))
+ return render_template('sale_form.html',staff=staff,partners=partners,branches=branches,today=date.today().isoformat(),sale=None,plans=plans,plan_data=plan_data)
+
+
+def _customer_for_sale(sale):
+ if sale.customer_phone:
+  c=Customer.query.filter_by(phone=sale.customer_phone).first()
+  if c:return c
+ return Customer.query.filter_by(name=sale.customer_name).order_by(Customer.id.desc()).first()
+
+def _rebuild_sale_automation(sale,form):
+ customer=_customer_for_sale(sale)
+ CustomerTask.query.filter_by(sale_id=sale.id,auto_created=True).delete(synchronize_session=False)
+ SaleAddon.query.filter_by(sale_id=sale.id).delete(synchronize_session=False)
+ payback=Payback.query.filter_by(sale_id=sale.id).first()
+ opening=sale.opening_date
+ if sale.plan_change_due_date and sale.next_plan:
+  db.session.add(CustomerTask(customer_id=customer.id if customer else None,sale_id=sale.id,task_type='요금제 변경',title=f'{sale.customer_name} 요금제 변경',description=f'{sale.current_plan or ""} → {sale.next_plan or ""}',due_date=sale.plan_change_due_date,assigned_staff=sale.assigned_staff,auto_created=True))
+ names=form.getlist('addon_name[]'); rules=form.getlist('addon_rule[]')
+ for addon_name,rule in zip(names,rules):
+  addon_name=addon_name.strip()
+  if not addon_name: continue
+  due=due_from_rule(opening,rule); db.session.add(SaleAddon(sale_id=sale.id,name=addon_name,retention_rule=rule,cancellation_due_date=due))
+  if due: db.session.add(CustomerTask(customer_id=customer.id if customer else None,sale_id=sale.id,task_type='부가서비스 해지',title=f'{sale.customer_name} 부가서비스 해지',description=f'{addon_name} · {rule}',due_date=due,assigned_staff=sale.assigned_staff,auto_created=True))
+ if sale.customer_payback>0:
+  if not payback:
+   payback=Payback(sale_id=sale.id,customer_id=customer.id if customer else None)
+   db.session.add(payback)
+  payback.amount=sale.customer_payback; payback.due_date=sale.payback_due_date; payback.bank=form.get('bank'); payback.account_number=form.get('account_number'); payback.account_holder=form.get('account_holder'); payback.memo=form.get('payback_memo')
+  if payback.status not in ['완료','취소']: payback.status='처리예정'
+  if sale.payback_due_date:
+   db.session.add(CustomerTask(customer_id=customer.id if customer else None,sale_id=sale.id,task_type='페이백 지급',title=f'{sale.customer_name} 페이백 지급',description=f'{sale.customer_payback:,}원',due_date=sale.payback_due_date,assigned_staff=sale.assigned_staff,status='완료' if payback.status=='완료' else '처리예정',auto_created=True))
+ elif payback:
+  db.session.delete(payback)
+
+@app.route('/sales/<int:sid>/edit',methods=['GET','POST'])
+@login_required
+def sale_edit(sid):
+ sale=Sale.query.get_or_404(sid)
+ enforce_branch(sale.branch_id)
+ staff=(User.query.filter_by(active=True,branch_id=current_branch_id()).order_by(User.display_name).all() if not is_admin() else User.query.filter_by(active=True).order_by(User.display_name,User.username).all()); partners=Partner.query.filter_by(active=True).order_by(Partner.name).all(); branches=(Branch.query.filter_by(id=current_branch_id()).all() if not is_admin() else Branch.query.filter_by(active=True).order_by(Branch.id).all()); plans=PlanMaster.query.filter_by(active=True).order_by(PlanMaster.carrier,PlanMaster.sort_order,PlanMaster.name).all(); plan_data=[{'carrier':p.carrier,'name':p.name} for p in plans]
+ if request.method=='POST':
+  old_inv=Inventory.query.get(sale.inventory_id) if sale.inventory_id else None
+  serial=request.form.get('serial_number','').strip(); new_inv=Inventory.query.filter_by(serial_number=serial).first() if serial else None
+  if new_inv and new_inv.sale_id not in [None,sale.id]:
+   flash('다른 판매건에 연결된 일련번호입니다.','error'); return redirect(url_for('sale_edit',sid=sale.id))
+  if old_inv and (not new_inv or old_inv.id!=new_inv.id):
+   old_inv.status='보유중'; old_inv.sale_id=None
+   db.session.add(InventoryMovement(inventory_id=old_inv.id,action='판매수정-재고복구',from_branch_id=old_inv.branch_id,to_branch_id=old_inv.branch_id,from_status='판매완료',to_status='보유중',processed_by=session.get('display_name') or session.get('username'),memo=f'판매 #{sale.id} 수정'))
+  if new_inv:
+   new_inv.status='판매완료'; new_inv.sale_id=sale.id
+   if not old_inv or old_inv.id!=new_inv.id:
+    db.session.add(InventoryMovement(inventory_id=new_inv.id,action='판매연결',from_branch_id=new_inv.branch_id,to_branch_id=new_inv.branch_id,from_status='보유중',to_status='판매완료',processed_by=session.get('display_name') or session.get('username'),memo=f'판매 #{sale.id} 수정'))
+  sale.customer_name=request.form.get('customer_name','').strip() or sale.customer_name; sale.customer_phone=request.form.get('customer_phone','').strip(); sale.customer_birth=request.form.get('customer_birth')
+  sale.opening_date=parse_date(request.form.get('opening_date')) or sale.opening_date; sale.carrier=request.form.get('carrier'); sale.opening_type=request.form.get('opening_type'); sale.visit_source=request.form.get('visit_source')
+  sale.branch_id=(sale.branch_id if not is_admin() else (request.form.get('branch_id') or sale.branch_id)); sale.assigned_staff=request.form.get('assigned_staff'); sale.serial_number=serial; sale.inventory_id=new_inv.id if new_inv else None; sale.partner_id=(new_inv.partner_id if new_inv else (request.form.get('partner_id') or None))
+  sale.manufacturer=new_inv.manufacturer if new_inv else request.form.get('manufacturer'); sale.device=new_inv.model if new_inv else request.form.get('device'); sale.storage=new_inv.capacity if new_inv else request.form.get('storage'); sale.color=new_inv.color if new_inv else request.form.get('color')
+  sale.current_plan=request.form.get('current_plan'); sale.next_plan=request.form.get('next_plan'); sale.plan=sale.current_plan; sale.plan_change_due_date=sale.opening_date+timedelta(days=183) if sale.next_plan else None
+  sale.internet_carrier=None; sale.internet_subscriber=None; sale.internet_install_date=None; sale.internet_cancel_due_date=None
+  sale.payback_due_date=parse_date(request.form.get('payback_due_date')); sale.memo=request.form.get('memo')
+  sale.rebate=money(request.form.get('rebate')); sale.verbal_extra=money(request.form.get('verbal_extra')); sale.deduction=money(request.form.get('deduction')); sale.extra_support=money(request.form.get('extra_support')); sale.customer_payback=money(request.form.get('customer_payback')); sale.sim_payment_type=request.form.get('sim_payment_type','없음'); sale.sim_fee=7700
+  settlement,tax,margin,transfer_fee=calc_settlement(sale.rebate,sale.verbal_extra,sale.deduction,sale.extra_support,sale.customer_payback,sale.opening_type,sale.sim_payment_type)
+  sale.settlement_amount_v2=settlement; sale.tax_amount=tax; sale.final_margin=margin; sale.transfer_fee=transfer_fee; sale.settlement=str(settlement); sale.margin=str(margin)
+  customer=_customer_for_sale(sale)
+  if customer:
+   customer.name=sale.customer_name; customer.phone=sale.customer_phone; customer.carrier=sale.carrier; customer.status='개통고객'
+  _rebuild_sale_automation(sale,request.form); db.session.commit()
+  flash('판매일보가 수정되었고 고객약속·페이백·재고 연결도 함께 갱신되었습니다.','success'); return redirect(url_for('sales'))
+ addons=SaleAddon.query.filter_by(sale_id=sale.id).order_by(SaleAddon.id).all(); pb=Payback.query.filter_by(sale_id=sale.id).first()
+ return render_template('sale_edit.html',sale=sale,addons=addons,payback=pb,staff=staff,partners=partners,branches=branches,plans=plans,plan_data=plan_data)
+
+@app.route('/sales')
 @login_required
 def sales():
-
-    prepare_database()
-
-    try:
-
-        q = request.args.get(
-            "q",
-            ""
-        ).strip()
-
-        sale_date = request.args.get(
-            "sale_date",
-            ""
-        ).strip()
-
-        seller = request.args.get(
-            "seller",
-            ""
-        ).strip()
-
-        query = Sale.query
-
-        # =================================================
-        # 통합 검색
-        # =================================================
-
-        if q:
-
-            search = f"%{q}%"
-
-            query = query.filter(
-
-                or_(
-
-                    Sale.customer_name.ilike(search),
-
-                    Sale.customer_phone.ilike(search),
-
-                    Sale.device.ilike(search),
-
-                    Sale.carrier.ilike(search),
-
-                    Sale.imei.ilike(search),
-
-                    Sale.opening_number.ilike(search),
-
-                    Sale.assigned_staff.ilike(search),
-
-                    Sale.created_by.ilike(search)
-
-                )
-
-            )
-
-        # =================================================
-        # 개통일 검색
-        # =================================================
-
-        if sale_date:
-
-            try:
-
-                selected_date = datetime.strptime(
-                    sale_date,
-                    "%Y-%m-%d"
-                ).date()
-
-                query = query.filter(
-                    Sale.opening_date == selected_date
-                )
-
-            except ValueError:
-
-                flash(
-                    "개통일 검색 형식이 올바르지 않습니다."
-                )
-
-        # =================================================
-        # 판매자 검색
-        # =================================================
-
-        if seller:
-
-            seller_search = f"%{seller}%"
-
-            query = query.filter(
-
-                or_(
-
-                    Sale.assigned_staff.ilike(
-                        seller_search
-                    ),
-
-                    Sale.created_by.ilike(
-                        seller_search
-                    )
-
-                )
-
-            )
-
-        # =================================================
-        # 정렬
-        # =================================================
-
-        sale_list = query.order_by(
-
-            Sale.opening_date.desc(),
-
-            Sale.created_at.desc()
-
-        ).all()
-
-        # =================================================
-        # 정산 / 마진 합계
-        # =================================================
-
-        total_settlement = 0
-
-        total_margin = 0
-
-        for sale in sale_list:
-
-            total_settlement += parse_money(
-                sale.settlement
-            )
-
-            total_margin += parse_money(
-                sale.margin
-            )
-
-        return render_template(
-
-            "sales.html",
-
-            sales=sale_list,
-
-            q=q,
-
-            sale_date=sale_date,
-
-            seller=seller,
-
-            total_settlement=total_settlement,
-
-            total_margin=total_margin
-
-        )
-
-    except Exception as e:
-
-        app.logger.exception(
-            "개통 목록 조회 오류"
-        )
-
-        return (
-            f"개통건 조회 중 오류가 발생했습니다.<br>"
-            f"<small>{str(e)}</small>",
-            500
-        )
+ q=request.args.get('q','').strip(); day=request.args.get('date','').strip(); branch_id=request.args.get('branch_id','').strip()
+ query=Sale.query
+ if not is_admin():
+  branch_id=str(current_branch_id() or ''); query=query.filter(Sale.branch_id==current_branch_id()) if current_branch_id() else query.filter(Sale.id==-1)
+ elif branch_id:
+  try:query=query.filter(Sale.branch_id==int(branch_id))
+  except:pass
+ if day:
+  d=parse_date(day)
+  if d: query=query.filter(Sale.opening_date==d)
+ if q:query=query.filter(or_(Sale.customer_name.ilike(f'%{q}%'),Sale.customer_phone.ilike(f'%{q}%'),Sale.device.ilike(f'%{q}%'),Sale.serial_number.ilike(f'%{q}%')))
+ items=query.order_by(Sale.opening_date.desc(),Sale.id.desc()).all()
+ doc_counts=dict(db.session.query(SaleDocument.sale_id,db.func.count(SaleDocument.id)).filter(SaleDocument.sale_id.in_([s.id for s in items] or [0])).group_by(SaleDocument.sale_id).all())
+ return render_template('sales.html',sales=items,q=q,date_filter=day,branch_id=branch_id,branches=Branch.query.filter_by(active=True).order_by(Branch.id).all(),doc_counts=doc_counts,total_settlement=sum(s.settlement_amount_v2 or money(s.settlement) for s in items),total_margin=sum(s.final_margin or money(s.margin) for s in items))
 
 
-# =========================================================
-# 개통 상세
-# =========================================================
-
-@app.route(
-    "/sales/<int:sale_id>"
-)
+@app.route('/sales/<int:sid>/documents',methods=['GET','POST'])
 @login_required
-def sale_detail(sale_id):
+def sale_documents(sid):
+ sale=Sale.query.get_or_404(sid); enforce_branch(sale.branch_id)
+ if request.method=='POST':
+  f=request.files.get('file')
+  if not f or not f.filename:
+   flash('저장할 서류 파일을 선택해주세요.','error'); return redirect(url_for('sale_documents',sid=sid))
+  name=secure_filename(f.filename) or 'document'
+  content_type=(f.mimetype or '').lower()
+  allowed={'application/pdf','image/jpeg','image/png','image/webp'}
+  if content_type not in allowed:
+   flash('PDF, JPG, PNG, WEBP 파일만 저장할 수 있습니다.','error'); return redirect(url_for('sale_documents',sid=sid))
+  data=f.read()
+  if len(data)>10*1024*1024:
+   flash('서류 1개는 10MB 이하만 저장할 수 있습니다.','error'); return redirect(url_for('sale_documents',sid=sid))
+  db.session.add(SaleDocument(sale_id=sale.id,branch_id=sale.branch_id,doc_type=request.form.get('doc_type','기타서류'),original_name=name,content_type=content_type,file_size=len(data),file_data=data,uploaded_by=session.get('display_name') or session.get('username')))
+  db.session.commit(); flash('고객 서류가 안전하게 저장되었습니다.','success'); return redirect(url_for('sale_documents',sid=sid))
+ docs=SaleDocument.query.filter_by(sale_id=sale.id).order_by(SaleDocument.created_at.desc()).all()
+ return render_template('sale_documents.html',sale=sale,docs=docs)
 
-    prepare_database()
-
-    sale = Sale.query.get_or_404(
-        sale_id
-    )
-
-    return render_template(
-        "sale_detail.html",
-        sale=sale
-    )
-
-
-# =========================================================
-# 개통 수정
-# =========================================================
-
-@app.route(
-    "/sales/<int:sale_id>/edit",
-    methods=["GET", "POST"]
-)
+@app.get('/documents/<int:did>/view')
 @login_required
-def sale_edit(sale_id):
-
-    prepare_database()
-
-    sale = Sale.query.get_or_404(
-        sale_id
-    )
-
-    if request.method == "POST":
-
-        customer_name = request.form.get(
-            "customer_name",
-            ""
-        ).strip()
-
-        if not customer_name:
-
-            flash(
-                "고객명을 입력해주세요."
-            )
-
-            return redirect(
-                url_for(
-                    "sale_edit",
-                    sale_id=sale_id
-                )
-            )
-
-        opening_date_text = request.form.get(
-            "opening_date",
-            ""
-        ).strip()
-
-        if opening_date_text:
-
-            try:
-
-                sale.opening_date = datetime.strptime(
-                    opening_date_text,
-                    "%Y-%m-%d"
-                ).date()
-
-            except ValueError:
-
-                flash(
-                    "개통일 형식이 올바르지 않습니다."
-                )
-
-                return redirect(
-                    url_for(
-                        "sale_edit",
-                        sale_id=sale_id
-                    )
-                )
-
-        # =================================================
-        # 고객
-        # =================================================
-
-        sale.customer_name = customer_name
-
-        sale.customer_phone = request.form.get(
-            "customer_phone",
-            ""
-        ).strip()
-
-        sale.customer_birth = request.form.get(
-            "customer_birth",
-            ""
-        ).strip()
-
-        sale.customer_gender = request.form.get(
-            "customer_gender",
-            ""
-        ).strip()
-
-        # =================================================
-        # 개통
-        # =================================================
-
-        sale.carrier = request.form.get(
-            "carrier",
-            ""
-        ).strip()
-
-        sale.opening_type = request.form.get(
-            "opening_type",
-            ""
-        ).strip()
-
-        sale.status = request.form.get(
-            "status",
-            "개통완료"
-        ).strip()
-
-        sale.opening_number = request.form.get(
-            "opening_number",
-            ""
-        ).strip()
-
-        # =================================================
-        # 단말기
-        # =================================================
-
-        sale.manufacturer = request.form.get(
-            "manufacturer",
-            ""
-        ).strip()
-
-        sale.device = request.form.get(
-            "device",
-            ""
-        ).strip()
-
-        sale.color = request.form.get(
-            "color",
-            ""
-        ).strip()
-
-        sale.storage = request.form.get(
-            "storage",
-            ""
-        ).strip()
-
-        sale.imei = request.form.get(
-            "imei",
-            ""
-        ).strip()
-
-        sale.serial_number = request.form.get(
-            "serial_number",
-            ""
-        ).strip()
-
-        # =================================================
-        # 요금제
-        # =================================================
-
-        sale.plan = request.form.get(
-            "plan",
-            ""
-        ).strip()
-
-        sale.contract_type = request.form.get(
-            "contract_type",
-            ""
-        ).strip()
-
-        sale.installment_months = request.form.get(
-            "installment_months",
-            ""
-        ).strip()
-
-        sale.selection_discount = request.form.get(
-            "selection_discount",
-            ""
-        ).strip()
-
-        # =================================================
-        # 금액
-        # =================================================
-
-        sale.device_price = request.form.get(
-            "device_price",
-            ""
-        ).replace(",", "").strip()
-
-        sale.official_subsidy = request.form.get(
-            "official_subsidy",
-            ""
-        ).replace(",", "").strip()
-
-        sale.additional_subsidy = request.form.get(
-            "additional_subsidy",
-            ""
-        ).replace(",", "").strip()
-
-        sale.seller_subsidy = request.form.get(
-            "seller_subsidy",
-            ""
-        ).replace(",", "").strip()
-
-        sale.subsidy = request.form.get(
-            "subsidy",
-            ""
-        ).replace(",", "").strip()
-
-        sale.installment_price = request.form.get(
-            "installment_price",
-            ""
-        ).replace(",", "").strip()
-
-        sale.cash_price = request.form.get(
-            "cash_price",
-            ""
-        ).replace(",", "").strip()
-
-        sale.monthly_installment = request.form.get(
-            "monthly_installment",
-            ""
-        ).replace(",", "").strip()
-
-        sale.monthly_payment = request.form.get(
-            "monthly_payment",
-            ""
-        ).replace(",", "").strip()
-
-        sale.settlement = request.form.get(
-            "settlement",
-            ""
-        ).replace(",", "").strip()
-
-        sale.margin = request.form.get(
-            "margin",
-            ""
-        ).replace(",", "").strip()
-
-        # =================================================
-        # 부가서비스
-        # =================================================
-
-        sale.additional_services = request.form.get(
-            "additional_services",
-            ""
-        ).strip()
-
-        sale.service_period = request.form.get(
-            "service_period",
-            ""
-        ).strip()
-
-        # =================================================
-        # 사은품
-        # =================================================
-
-        sale.gifts = request.form.get(
-            "gifts",
-            ""
-        ).strip()
-
-        sale.gift_status = request.form.get(
-            "gift_status",
-            ""
-        ).strip()
-
-        # =================================================
-        # 사후관리
-        # =================================================
-
-        sale.aftercare_status = request.form.get(
-            "aftercare_status",
-            ""
-        ).strip()
-
-        # =================================================
-        # 기존폰
-        # =================================================
-
-        sale.old_device = request.form.get(
-            "old_device",
-            ""
-        ).strip()
-
-        sale.old_device_return = request.form.get(
-            "old_device_return",
-            ""
-        ).strip()
-
-        sale.trade_in_price = request.form.get(
-            "trade_in_price",
-            ""
-        ).replace(",", "").strip()
-
-        # =================================================
-        # 담당직원
-        # =================================================
-
-        sale.assigned_staff = request.form.get(
-            "assigned_staff",
-            ""
-        ).strip()
-
-        # =================================================
-        # 메모
-        # =================================================
-
-        sale.memo = request.form.get(
-            "memo",
-            ""
-        ).strip()
-
-        db.session.commit()
-
-        flash(
-            "개통 정보가 수정되었습니다."
-        )
-
-        return redirect(
-            url_for("sales")
-        )
-
-    staff_list = User.query.filter_by(
-        role="staff"
-    ).order_by(
-        User.username.asc()
-    ).all()
-
-    return render_template(
-
-        "sale_form.html",
-
-        sale=sale,
-
-        staff_list=staff_list,
-
-        today=date.today().isoformat()
-
-    )
-
-
-# =========================================================
-# 개통 삭제
-# =========================================================
-
-@app.route(
-    "/sales/<int:sale_id>/delete",
-    methods=["POST"]
-)
+def document_view(did):
+ d=SaleDocument.query.get_or_404(did); sale=Sale.query.get_or_404(d.sale_id); enforce_branch(sale.branch_id)
+ return send_file(io.BytesIO(d.file_data),mimetype=d.content_type,download_name=d.original_name,as_attachment=False)
+
+@app.post('/documents/<int:did>/delete')
+@login_required
+def document_delete(did):
+ d=SaleDocument.query.get_or_404(did); sale=Sale.query.get_or_404(d.sale_id); enforce_branch(sale.branch_id)
+ db.session.delete(d); db.session.commit(); flash('서류가 삭제되었습니다.','success'); return redirect(url_for('sale_documents',sid=sale.id))
+
+@app.post('/sales/<int:sid>/delete')
 @login_required
 @admin_required
-def sale_delete(sale_id):
+def sale_delete(sid):
+ s=Sale.query.get_or_404(sid)
+ inv=Inventory.query.filter_by(sale_id=s.id).first()
+ if inv:
+  old_status=inv.status; inv.status='보유중'; inv.sale_id=None
+  db.session.add(InventoryMovement(inventory_id=inv.id,action='판매삭제-재고복구',from_branch_id=inv.branch_id,to_branch_id=inv.branch_id,from_status=old_status,to_status='보유중',processed_by=session.get('display_name') or session.get('username'),memo=f'판매 #{s.id} 삭제'))
+ CustomerTask.query.filter_by(sale_id=s.id).delete(synchronize_session=False)
+ Payback.query.filter_by(sale_id=s.id).delete(synchronize_session=False)
+ SaleAddon.query.filter_by(sale_id=s.id).delete(synchronize_session=False)
+ SaleDocument.query.filter_by(sale_id=s.id).delete(synchronize_session=False)
+ db.session.delete(s); db.session.commit(); flash('개통건이 삭제되었고 연결 재고는 보유중으로 복구되었습니다.','success'); return redirect(url_for('sales'))
 
-    prepare_database()
-
-    sale = Sale.query.get_or_404(
-        sale_id
-    )
-
-    db.session.delete(sale)
-
-    db.session.commit()
-
-    flash(
-        "개통 정보가 삭제되었습니다."
-    )
-
-    return redirect(
-        url_for("sales")
-    )
-
-
-# =========================================================
-# 시세표 관리
-# =========================================================
-
-@app.route(
-    "/prices",
-    methods=["GET", "POST"]
-)
+@app.route('/paybacks')
 @login_required
-def prices():
+def paybacks():
+ status=request.args.get('status','').strip(); due=request.args.get('due','').strip(); branch_id=request.args.get('branch_id','').strip()
+ query=Payback.query.join(Sale,Payback.sale_id==Sale.id)
+ if not is_admin():
+  branch_id=str(current_branch_id() or ''); query=query.filter(Sale.branch_id==current_branch_id()) if current_branch_id() else query.filter(Payback.id==-1)
+ elif branch_id:
+  try:query=query.filter(Sale.branch_id==int(branch_id))
+  except:pass
+ if status: query=query.filter(Payback.status==status)
+ today=date.today()
+ if due=='today': query=query.filter(Payback.due_date==today,Payback.status!='완료')
+ elif due=='overdue': query=query.filter(Payback.due_date<today,Payback.status!='완료')
+ items=query.order_by(Payback.due_date.asc(),Payback.id.desc()).all()
+ sales_map={s.id:s for s in Sale.query.filter(Sale.id.in_([p.sale_id for p in items] or [0])).all()}
+ allq=payback_query_scoped()
+ stats={'today':allq.filter(Payback.due_date==today,Payback.status!='완료').count(),'overdue':payback_query_scoped().filter(Payback.due_date<today,Payback.status!='완료').count(),'pending':payback_query_scoped().filter(Payback.status!='완료').count()}
+ return render_template('paybacks.html',items=items,sales_map=sales_map,status=status,due=due,branch_id=branch_id,branches=Branch.query.filter_by(active=True).order_by(Branch.id).all(),stats=stats)
 
-    prepare_database()
+@app.route('/paybacks/<int:pid>/edit',methods=['GET','POST'])
+@login_required
+def payback_edit(pid):
+ p=Payback.query.get_or_404(pid); s=Sale.query.get(p.sale_id)
+ if s: enforce_branch(s.branch_id)
+ if request.method=='POST':
+  p.amount=money(request.form.get('amount')); p.due_date=parse_date(request.form.get('due_date')); p.status=request.form.get('status','처리예정')
+  p.bank=request.form.get('bank'); p.account_number=request.form.get('account_number'); p.account_holder=request.form.get('account_holder'); p.memo=request.form.get('memo')
+  if p.status=='완료':
+   if not p.processed_at: p.processed_at=datetime.utcnow()
+   p.processed_by=session.get('display_name') or session.get('username')
+  else:
+   p.processed_at=None; p.processed_by=None
+  if s:
+   s.customer_payback=p.amount; s.payback_due_date=p.due_date
+   settlement,tax,margin,transfer_fee=calc_settlement(s.rebate or 0,s.verbal_extra or 0,s.deduction or 0,s.extra_support or 0,p.amount,s.opening_type,s.sim_payment_type)
+   s.settlement_amount_v2=settlement; s.tax_amount=tax; s.final_margin=margin; s.transfer_fee=transfer_fee; s.settlement=str(settlement); s.margin=str(margin)
+  task=CustomerTask.query.filter_by(sale_id=p.sale_id,task_type='페이백 지급',auto_created=True).order_by(CustomerTask.id.desc()).first()
+  if p.amount>0 and p.due_date:
+   if not task:
+    customer=_customer_for_sale(s) if s else None
+    task=CustomerTask(customer_id=customer.id if customer else None,sale_id=p.sale_id,task_type='페이백 지급',title=f'{s.customer_name if s else "고객"} 페이백 지급',description=f'{p.amount:,}원',due_date=p.due_date,assigned_staff=s.assigned_staff if s else None,auto_created=True)
+    db.session.add(task)
+   task.due_date=p.due_date; task.description=f'{p.amount:,}원'; task.status='완료' if p.status=='완료' else '처리예정'
+   task.completed_at=p.processed_at if p.status=='완료' else None; task.completed_by=p.processed_by if p.status=='완료' else None
+  elif task:
+   db.session.delete(task)
+  db.session.commit(); flash('페이백 정보와 연결된 고객약속/최종마진이 수정되었습니다.','success'); return redirect(url_for('paybacks'))
+ return render_template('payback_edit.html',p=p,sale=s)
 
-    if request.method == "POST":
+@app.post('/paybacks/<int:pid>/complete')
+@login_required
+def payback_complete(pid):
+ p=Payback.query.get_or_404(pid); enforce_branch(Sale.query.get_or_404(p.sale_id).branch_id); p.status='완료'; p.processed_at=datetime.utcnow(); p.processed_by=session.get('display_name') or session.get('username')
+ task=CustomerTask.query.filter_by(sale_id=p.sale_id,task_type='페이백 지급',auto_created=True).order_by(CustomerTask.id.desc()).first()
+ if task: task.status='완료'; task.completed_at=p.processed_at; task.completed_by=p.processed_by
+ db.session.commit(); flash('페이백을 완료 처리했습니다.','success'); return redirect(url_for('paybacks'))
 
-        if session.get("role") != "admin":
-
-            abort(403)
-
-        device = request.form.get(
-            "device",
-            ""
-        ).strip()
-
-        carrier = request.form.get(
-            "carrier",
-            ""
-        ).strip()
-
-        sale_type = request.form.get(
-            "sale_type",
-            ""
-        ).strip()
-
-        price = request.form.get(
-            "price",
-            ""
-        ).strip()
-
-        if (
-            not device
-            or not carrier
-            or not sale_type
-            or not price
-        ):
-
-            flash(
-                "모든 시세 정보를 입력해주세요."
-            )
-
-            return redirect(
-                url_for("prices")
-            )
-
-        item = Price(
-
-            device=device,
-
-            carrier=carrier,
-
-            sale_type=sale_type,
-
-            price=price
-
-        )
-
-        db.session.add(item)
-
-        db.session.commit()
-
-        flash(
-            "시세가 등록되었습니다."
-        )
-
-        return redirect(
-            url_for("prices")
-        )
-
-    price_list = Price.query.order_by(
-        Price.updated_at.desc()
-    ).all()
-
-    return render_template(
-        "prices.html",
-        prices=price_list
-    )
+@app.post('/paybacks/<int:pid>/reopen')
+@login_required
+def payback_reopen(pid):
+ p=Payback.query.get_or_404(pid); enforce_branch(Sale.query.get_or_404(p.sale_id).branch_id); p.status='처리예정'; p.processed_at=None; p.processed_by=None
+ task=CustomerTask.query.filter_by(sale_id=p.sale_id,task_type='페이백 지급',auto_created=True).order_by(CustomerTask.id.desc()).first()
+ if task: task.status='처리예정'; task.completed_at=None; task.completed_by=None
+ db.session.commit(); flash('페이백을 처리예정으로 되돌렸습니다.','success'); return redirect(url_for('paybacks'))
 
 
-# =========================================================
-# 시세 삭제
-# =========================================================
+@app.route('/wired-sales')
+@login_required
+def wired_sales():
+ q=request.args.get('q','').strip(); status=request.args.get('status','').strip(); branch_id=request.args.get('branch_id','').strip()
+ query=WiredSale.query
+ if not is_admin():
+  branch_id=str(current_branch_id() or ''); query=query.filter(WiredSale.branch_id==current_branch_id()) if current_branch_id() else query.filter(WiredSale.id==-1)
+ elif branch_id:
+  try: query=query.filter(WiredSale.branch_id==int(branch_id))
+  except: pass
+ if q: query=query.filter(or_(WiredSale.customer_name.ilike(f'%{q}%'),WiredSale.customer_phone.ilike(f'%{q}%'),WiredSale.subscriber_name.ilike(f'%{q}%')))
+ if status: query=query.filter_by(status=status)
+ items=query.order_by(WiredSale.sale_date.desc(),WiredSale.id.desc()).all()
+ branches={b.id:b for b in Branch.query.all()}
+ return render_template('wired_sales.html',items=items,branches=branches,branch_list=Branch.query.filter_by(active=True).order_by(Branch.id).all(),q=q,status=status,branch_id=branch_id)
 
-@app.route(
-    "/prices/<int:price_id>/delete",
-    methods=["POST"]
-)
+@app.route('/wired-sales/new',methods=['GET','POST'])
+@login_required
+def wired_sale_new():
+ branches=(Branch.query.filter_by(id=current_branch_id()).all() if not is_admin() else Branch.query.filter_by(active=True).order_by(Branch.id).all())
+ staff=(User.query.filter_by(active=True,branch_id=current_branch_id()).order_by(User.display_name).all() if not is_admin() else User.query.filter_by(active=True).order_by(User.display_name,User.username).all())
+ wired_products=WiredProductMaster.query.filter_by(active=True).order_by(WiredProductMaster.carrier,WiredProductMaster.category,WiredProductMaster.sort_order,WiredProductMaster.name).all()
+ wired_product_data=[{'carrier':x.carrier,'category':x.category,'name':x.name,'speed':x.speed or ''} for x in wired_products]
+ if request.method=='POST':
+  rebate=money(request.form.get('rebate')); verbal=money(request.form.get('verbal_extra'))
+  gift=money(request.form.get('gift_certificate')); gift_cost=money(request.form.get('gift_cost')); deduction=money(request.form.get('deduction'))
+  payback=money(request.form.get('payback')); gift_return=money(request.form.get('gift_return'))
+  settlement,tax,margin=calc_wired_settlement(rebate,verbal,gift,gift_cost,deduction,payback,gift_return)
+  item=WiredSale(
+   sale_date=parse_date(request.form.get('sale_date')) or date.today(),
+   customer_name=request.form.get('customer_name','').strip(),
+   customer_phone=request.form.get('customer_phone','').strip(),
+   subscriber_name=request.form.get('subscriber_name','').strip(),
+   branch_id=(current_branch_id() if not is_admin() else (request.form.get('branch_id') or None)),
+   assigned_staff=request.form.get('assigned_staff') or session.get('display_name') or session.get('username'),
+   carrier=request.form.get('carrier'),
+   product_type=request.form.get('product_type'),
+   internet_plan=request.form.get('internet_plan'),
+   internet_speed=request.form.get('internet_speed'),
+   tv_plan=request.form.get('tv_plan'),
+   install_due_date=parse_date(request.form.get('install_due_date')),
+   install_date=parse_date(request.form.get('install_date')),
+   status=request.form.get('status','접수'),
+   rebate=rebate,verbal_extra=verbal,gift_certificate=gift,gift_cost=gift_cost,deduction=deduction,
+   settlement_amount=settlement,tax_rate=.133,tax_amount=tax,
+   payback=payback,gift_return=gift_return,final_margin=margin,
+   memo=request.form.get('memo'),
+   created_by=session.get('display_name') or session.get('username')
+  )
+  if not item.customer_name:
+   flash('고객명을 입력해주세요.','error')
+   return render_template('wired_sale_form.html',item=None,branches=branches,staff=staff,today=date.today().isoformat(),wired_product_data=wired_product_data)
+  db.session.add(item); db.session.commit()
+  flash('유선판매 내역이 등록되었습니다.','success'); return redirect(url_for('wired_sales'))
+ return render_template('wired_sale_form.html',item=None,branches=branches,staff=staff,today=date.today().isoformat(),wired_product_data=wired_product_data)
+
+@app.route('/wired-sales/<int:wid>/edit',methods=['GET','POST'])
+@login_required
+def wired_sale_edit(wid):
+ item=WiredSale.query.get_or_404(wid)
+ enforce_branch(item.branch_id)
+ branches=(Branch.query.filter_by(id=current_branch_id()).all() if not is_admin() else Branch.query.filter_by(active=True).order_by(Branch.id).all())
+ staff=(User.query.filter_by(active=True,branch_id=current_branch_id()).order_by(User.display_name).all() if not is_admin() else User.query.filter_by(active=True).order_by(User.display_name,User.username).all())
+ wired_products=WiredProductMaster.query.filter_by(active=True).order_by(WiredProductMaster.carrier,WiredProductMaster.category,WiredProductMaster.sort_order,WiredProductMaster.name).all()
+ wired_product_data=[{'carrier':x.carrier,'category':x.category,'name':x.name,'speed':x.speed or ''} for x in wired_products]
+ if request.method=='POST':
+  item.sale_date=parse_date(request.form.get('sale_date')) or item.sale_date
+  item.customer_name=request.form.get('customer_name','').strip() or item.customer_name
+  item.customer_phone=request.form.get('customer_phone','').strip()
+  item.subscriber_name=request.form.get('subscriber_name','').strip()
+  item.branch_id=request.form.get('branch_id') or None
+  item.assigned_staff=request.form.get('assigned_staff')
+  item.carrier=request.form.get('carrier')
+  item.product_type=request.form.get('product_type')
+  item.internet_plan=request.form.get('internet_plan')
+  item.internet_speed=request.form.get('internet_speed')
+  item.tv_plan=request.form.get('tv_plan')
+  item.install_due_date=parse_date(request.form.get('install_due_date'))
+  item.install_date=parse_date(request.form.get('install_date'))
+  item.status=request.form.get('status','접수')
+  item.rebate=money(request.form.get('rebate')); item.verbal_extra=money(request.form.get('verbal_extra'))
+  item.gift_certificate=money(request.form.get('gift_certificate')); item.gift_cost=money(request.form.get('gift_cost')); item.deduction=money(request.form.get('deduction'))
+  item.payback=money(request.form.get('payback')); item.gift_return=money(request.form.get('gift_return'))
+  item.settlement_amount,item.tax_amount,item.final_margin=calc_wired_settlement(
+   item.rebate,item.verbal_extra,item.gift_certificate,item.gift_cost,item.deduction,item.payback,item.gift_return
+  )
+  item.tax_rate=.133; item.memo=request.form.get('memo')
+  db.session.commit()
+  flash('유선판매 내역과 정산정보가 수정되었습니다.','success'); return redirect(url_for('wired_sales'))
+ return render_template('wired_sale_form.html',item=item,branches=branches,staff=staff,today=date.today().isoformat(),wired_product_data=wired_product_data)
+
+@app.post('/wired-sales/<int:wid>/delete')
 @login_required
 @admin_required
-def price_delete(price_id):
-
-    prepare_database()
-
-    item = Price.query.get_or_404(
-        price_id
-    )
-
-    db.session.delete(item)
-
-    db.session.commit()
-
-    flash(
-        "시세가 삭제되었습니다."
-    )
-
-    return redirect(
-        url_for("prices")
-    )
+def wired_sale_delete(wid):
+ item=WiredSale.query.get_or_404(wid); enforce_branch(item.branch_id); db.session.delete(item); db.session.commit(); flash('유선판매 내역이 삭제되었습니다.','success'); return redirect(url_for('wired_sales'))
 
 
-# =========================================================
-# 직원 관리
-# =========================================================
+@app.route('/masters',methods=['GET','POST'])
+@login_required
+@admin_required
+def masters():
+ prepare_database()
+ if request.method=='POST':
+  kind=request.form.get('kind')
+  if kind=='plan':
+   carrier=request.form.get('carrier','').strip(); name=request.form.get('name','').strip()
+   if carrier and name and not PlanMaster.query.filter_by(carrier=carrier,name=name).first():
+    db.session.add(PlanMaster(carrier=carrier,name=name,active=True,sort_order=999)); db.session.commit(); flash('요금제가 추가되었습니다.','success')
+  elif kind=='device':
+   maker=request.form.get('manufacturer','').strip(); model=request.form.get('model','').strip()
+   if maker and model and not DeviceMaster.query.filter_by(manufacturer=maker,model=model).first():
+    db.session.add(DeviceMaster(manufacturer=maker,model=model,capacities=request.form.get('capacities'),colors=request.form.get('colors'),active=True,sort_order=999)); db.session.commit(); flash('단말기 기준정보가 추가되었습니다.','success')
+  elif kind=='wired':
+   carrier=request.form.get('carrier','').strip(); category=request.form.get('category','').strip(); name=request.form.get('name','').strip(); speed=request.form.get('speed','').strip() or None
+   if carrier and category and name and not WiredProductMaster.query.filter_by(carrier=carrier,category=category,name=name).first():
+    db.session.add(WiredProductMaster(carrier=carrier,category=category,name=name,speed=speed,active=True,sort_order=999)); db.session.commit(); flash('유선상품 기준정보가 추가되었습니다.','success')
+  return redirect(url_for('masters'))
+ return render_template('masters.html',plans=PlanMaster.query.order_by(PlanMaster.carrier,PlanMaster.sort_order,PlanMaster.name).all(),devices=DeviceMaster.query.order_by(DeviceMaster.manufacturer,DeviceMaster.sort_order,DeviceMaster.model).all(),wired_products=WiredProductMaster.query.order_by(WiredProductMaster.carrier,WiredProductMaster.category,WiredProductMaster.sort_order,WiredProductMaster.name).all())
 
-@app.route(
-    "/staff",
-    methods=["GET", "POST"]
-)
+@app.post('/masters/plan/<int:mid>/toggle')
+@login_required
+@admin_required
+def master_plan_toggle(mid):
+ x=PlanMaster.query.get_or_404(mid); x.active=not x.active; db.session.commit(); return redirect(url_for('masters'))
+
+@app.post('/masters/device/<int:mid>/toggle')
+@login_required
+@admin_required
+def master_device_toggle(mid):
+ x=DeviceMaster.query.get_or_404(mid); x.active=not x.active; db.session.commit(); return redirect(url_for('masters'))
+
+@app.post('/masters/wired/<int:mid>/toggle')
+@login_required
+@admin_required
+def master_wired_toggle(mid):
+ x=WiredProductMaster.query.get_or_404(mid); x.active=not x.active; db.session.commit(); return redirect(url_for('masters'))
+
+@app.route('/staff',methods=['GET','POST'])
 @login_required
 @admin_required
 def staff():
+ prepare_database()
+ if request.method=='POST':
+  u=request.form.get('username','').strip(); pw=request.form.get('password',''); role=request.form.get('role','staff'); display_name=request.form.get('display_name','').strip(); branch_id=request.form.get('branch_id') or None
+  if not u or not pw or not display_name:
+   flash('직원명, 로그인 아이디, 비밀번호를 모두 입력해주세요.','error')
+  elif User.query.filter_by(username=u).first():
+   flash('이미 사용 중인 로그인 아이디입니다.','error')
+  else:
+   db.session.add(User(username=u,password_hash=generate_password_hash(pw),role=role,display_name=display_name,branch_id=branch_id,active=True)); db.session.commit(); flash('직원이 등록되었습니다.','success')
+  return redirect(url_for('staff'))
+ users=User.query.order_by(User.active.desc(),User.display_name,User.username).all()
+ return render_template('staff.html',users=users,branches=Branch.query.filter_by(active=True).order_by(Branch.id).all())
 
-    prepare_database()
-
-    if request.method == "POST":
-
-        username = request.form.get(
-            "username",
-            ""
-        ).strip()
-
-        password = request.form.get(
-            "password",
-            ""
-        )
-
-        password_confirm = request.form.get(
-            "password_confirm",
-            ""
-        )
-
-        if not username:
-
-            flash(
-                "직원 아이디를 입력해주세요."
-            )
-
-            return redirect(
-                url_for("staff")
-            )
-
-        if len(username) < 2:
-
-            flash(
-                "아이디는 2자 이상 입력해주세요."
-            )
-
-            return redirect(
-                url_for("staff")
-            )
-
-        if len(password) < 4:
-
-            flash(
-                "비밀번호는 4자 이상 입력해주세요."
-            )
-
-            return redirect(
-                url_for("staff")
-            )
-
-        if password != password_confirm:
-
-            flash(
-                "비밀번호가 서로 다릅니다."
-            )
-
-            return redirect(
-                url_for("staff")
-            )
-
-        existing_user = User.query.filter_by(
-            username=username
-        ).first()
-
-        if existing_user:
-
-            flash(
-                "이미 사용 중인 아이디입니다."
-            )
-
-            return redirect(
-                url_for("staff")
-            )
-
-        user = User(
-
-            username=username,
-
-            password_hash=generate_password_hash(
-                password
-            ),
-
-            role="staff"
-
-        )
-
-        db.session.add(user)
-
-        db.session.commit()
-
-        flash(
-            f"{username} 직원 계정이 생성되었습니다."
-        )
-
-        return redirect(
-            url_for("staff")
-        )
-
-    staff_list = User.query.order_by(
-        User.created_at.asc()
-    ).all()
-
-    return render_template(
-        "staff.html",
-        users=staff_list
-    )
-
-
-# =========================================================
-# 직원 삭제
-# =========================================================
-
-@app.route(
-    "/staff/<int:user_id>/delete",
-    methods=["POST"]
-)
+@app.route('/staff/<int:uid>/edit',methods=['GET','POST'])
 @login_required
 @admin_required
-def staff_delete(user_id):
+def staff_edit(uid):
+ u=User.query.get_or_404(uid)
+ if request.method=='POST':
+  display_name=request.form.get('display_name','').strip()
+  if not display_name:
+   flash('직원명을 입력해주세요.','error'); return redirect(url_for('staff_edit',uid=uid))
+  u.display_name=display_name; u.branch_id=request.form.get('branch_id') or None; u.role=request.form.get('role','staff'); u.active=request.form.get('active')=='1'
+  new_pw=request.form.get('password','')
+  if new_pw: u.password_hash=generate_password_hash(new_pw)
+  db.session.commit()
+  if session.get('user_id')==u.id:
+   session['display_name']=u.display_name; session['role']=u.role
+  flash('직원정보가 수정되었습니다.','success'); return redirect(url_for('staff'))
+ return render_template('staff_edit.html',u=u,branches=Branch.query.filter_by(active=True).order_by(Branch.id).all())
 
-    prepare_database()
-
-    user = User.query.get_or_404(
-        user_id
-    )
-
-    if user.role == "admin":
-
-        flash(
-            "관리자 계정은 삭제할 수 없습니다."
-        )
-
-        return redirect(
-            url_for("staff")
-        )
-
-    if user.id == session.get(
-        "user_id"
-    ):
-
-        flash(
-            "현재 로그인한 계정은 삭제할 수 없습니다."
-        )
-
-        return redirect(
-            url_for("staff")
-        )
-
-    username = user.username
-
-    db.session.delete(user)
-
-    db.session.commit()
-
-    flash(
-        f"{username} 직원 계정이 삭제되었습니다."
-    )
-
-    return redirect(
-        url_for("staff")
-    )
-
-
-# =========================================================
-# 직원 비밀번호 변경
-# =========================================================
-
-@app.route(
-    "/staff/<int:user_id>/password",
-    methods=["POST"]
-)
+@app.post('/staff/<int:uid>/toggle')
 @login_required
 @admin_required
-def staff_password(user_id):
+def staff_toggle(uid):
+ u=User.query.get_or_404(uid)
+ if session.get('user_id')==u.id and u.active:
+  flash('현재 로그인 중인 본인 계정은 비활성화할 수 없습니다.','error'); return redirect(url_for('staff'))
+ u.active=not bool(u.active); db.session.commit()
+ flash('직원 계정 상태를 변경했습니다.','success'); return redirect(url_for('staff'))
 
-    prepare_database()
+@app.post('/staff/<int:uid>/delete')
+@login_required
+@admin_required
+def staff_delete(uid):
+ u=User.query.get_or_404(uid)
+ if session.get('user_id')==u.id:
+  flash('현재 로그인 중인 본인 계정은 삭제할 수 없습니다.','error'); return redirect(url_for('staff'))
+ staff_name=u.display_name or u.username
+ has_sales=Sale.query.filter(or_(Sale.assigned_staff==staff_name,Sale.created_by==staff_name,Sale.assigned_staff==u.username,Sale.created_by==u.username)).count()>0
+ has_tasks=CustomerTask.query.filter(or_(CustomerTask.assigned_staff==staff_name,CustomerTask.completed_by==staff_name,CustomerTask.assigned_staff==u.username,CustomerTask.completed_by==u.username)).count()>0
+ has_wired=WiredSale.query.filter(or_(WiredSale.assigned_staff==staff_name,WiredSale.created_by==staff_name,WiredSale.assigned_staff==u.username,WiredSale.created_by==u.username)).count()>0
+ if has_sales or has_tasks or has_wired:
+  flash('판매/약속/유선판매 이력이 있는 직원은 완전 삭제할 수 없습니다. 비활성화로 관리해주세요.','error'); return redirect(url_for('staff'))
+ db.session.delete(u); db.session.commit(); flash('직원 계정이 삭제되었습니다.','success'); return redirect(url_for('staff'))
 
-    user = User.query.get_or_404(
-        user_id
-    )
-
-    if user.role == "admin":
-
-        flash(
-            "관리자 계정 비밀번호는 Render 환경변수에서 관리해주세요."
-        )
-
-        return redirect(
-            url_for("staff")
-        )
-
-    new_password = request.form.get(
-        "new_password",
-        ""
-    )
-
-    confirm_password = request.form.get(
-        "confirm_password",
-        ""
-    )
-
-    if len(new_password) < 4:
-
-        flash(
-            "비밀번호는 4자 이상 입력해주세요."
-        )
-
-        return redirect(
-            url_for("staff")
-        )
-
-    if new_password != confirm_password:
-
-        flash(
-            "비밀번호가 서로 다릅니다."
-        )
-
-        return redirect(
-            url_for("staff")
-        )
-
-    user.password_hash = generate_password_hash(
-        new_password
-    )
-
-    db.session.commit()
-
-    flash(
-        f"{user.username} 직원의 비밀번호가 변경되었습니다."
-    )
-
-    return redirect(
-        url_for("staff")
-    )
-
-
-# =========================================================
-# 403
-# =========================================================
-
-@app.errorhandler(403)
-def forbidden(error):
-
-    return (
-        "접근 권한이 없습니다.",
-        403
-    )
-
-
-# =========================================================
-# 404
-# =========================================================
-
-@app.errorhandler(404)
-def not_found(error):
-
-    return (
-        "페이지를 찾을 수 없습니다.",
-        404
-    )
-
-
-# =========================================================
-# 500
-# =========================================================
-
-@app.errorhandler(500)
-def internal_error(error):
-
-    db.session.rollback()
-
-    app.logger.exception(
-        "500 Internal Server Error"
-    )
-
-    return (
-        """
-        <div style="
-            font-family:Arial;
-            padding:40px;
-            text-align:center;
-        ">
-            <h1>서버 오류가 발생했습니다.</h1>
-            <p>
-                잠시 후 다시 시도해주세요.
-            </p>
-            <p>
-                문제가 계속되면 관리자에게 문의해주세요.
-            </p>
-        </div>
-        """,
-        500
-    )
-
-
-# =========================================================
-# 앱 시작 시 DB 준비
-# =========================================================
-
-with app.app_context():
-
-    try:
-
-        db.create_all()
-
-        upgrade_sale_table()
-
-    except Exception as e:
-
-        print(
-            "초기 데이터베이스 준비 실패:",
-            str(e)
-        )
-
-
-# =========================================================
-# 로컬 개발용 실행
-# =========================================================
-
-if __name__ == "__main__":
-
-    app.run(
-
-        host="0.0.0.0",
-
-        port=int(
-            os.environ.get(
-                "PORT",
-                "5000"
-            )
-        )
-
-    )

@@ -1,0 +1,19 @@
+{% extends 'base.html' %}{% block page_title %}{{'재고 수정' if item else '단말기 입고등록'}}{% endblock %}{% block content %}
+<section class="panel"><form method="post" class="form-grid" id="inventoryForm">
+<label>입고일<input type="date" name="received_date" value="{{item.received_date.isoformat() if item else today}}" required></label>
+<label>거래처<select name="partner_id"><option value="">선택</option>{% for p in partners %}<option value="{{p.id}}" {% if item and item.partner_id==p.id %}selected{% endif %}>{{p.name}}</option>{% endfor %}</select></label>
+<label>보유지점<select name="branch_id" {% if current_role!='admin' %}disabled{% endif %}>{% for b in branches %}<option value="{{b.id}}" {% if (item and item.branch_id==b.id) or (not item and current_branch_id==b.id) %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select>{% if current_role!='admin' %}<input type="hidden" name="branch_id" value="{{current_branch_id}}">{% endif %}</label>
+<label>통신사<select name="carrier"><option></option>{% for v in ['SK','KT','LG','자급제'] %}<option {% if item and item.carrier==v %}selected{% endif %}>{{v}}</option>{% endfor %}</select></label>
+<label>제조사<select name="manufacturer" id="manufacturer"><option value="">선택</option>{% for v in ['삼성','애플','기타'] %}<option value="{{v}}" {% if item and item.manufacturer==v %}selected{% endif %}>{{v}}</option>{% endfor %}</select></label>
+<label>모델명 *<input name="model" id="model" list="modelList" autocomplete="off" value="{{item.model if item else ''}}" placeholder="예: S26 또는 iPhone 17 검색" required><datalist id="modelList"></datalist></label>
+<label>용량<input name="capacity" id="capacity" list="capacityList" value="{{item.capacity if item else ''}}"><datalist id="capacityList"></datalist></label>
+<label>색상<input name="color" id="color" list="colorList" value="{{item.color if item else ''}}"><datalist id="colorList"></datalist></label>
+<label>일련번호 *<input name="serial_number" value="{{item.serial_number if item else ''}}" {% if item %}readonly{% endif %} required></label><label>입고단가<input name="purchase_price" value="{{item.purchase_price if item else 0}}"></label><label>보관위치<input name="storage_location" value="{{item.storage_location if item else ''}}"></label><label class="span-2">메모<textarea name="memo">{{item.memo if item else ''}}</textarea></label><div class="span-2 action-row"><a class="btn" href="{{url_for('inventory_detail',iid=item.id) if item else url_for('inventory')}}">취소</a><button class="btn primary">{{'수정 저장' if item else '입고 등록'}}</button></div></form></section>
+<script>
+const deviceMaster={{ device_master_data|tojson }};
+const clean=deviceMaster.map(x=>({manufacturer:x.manufacturer,model:x.model,capacities:x.capacities||'',colors:x.colors||''}));
+const maker=document.getElementById('manufacturer'), model=document.getElementById('model'), modelList=document.getElementById('modelList'), capList=document.getElementById('capacityList'), colorList=document.getElementById('colorList');
+function models(){const m=maker.value;modelList.innerHTML='';clean.filter(x=>!m||x.manufacturer===m).forEach(x=>{const o=document.createElement('option');o.value=x.model;modelList.appendChild(o);});}
+function variants(){const x=clean.find(x=>x.model===model.value);capList.innerHTML='';colorList.innerHTML='';if(!x)return;(x.capacities||'').split(',').filter(Boolean).forEach(v=>{const o=document.createElement('option');o.value=v.trim();capList.appendChild(o)});(x.colors||'').split(',').filter(Boolean).forEach(v=>{const o=document.createElement('option');o.value=v.trim();colorList.appendChild(o)});if(x.manufacturer)maker.value=x.manufacturer;}
+maker.addEventListener('change',models);model.addEventListener('input',variants);models();variants();
+</script>{% endblock %}

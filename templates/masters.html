@@ -1,0 +1,25 @@
+{% extends 'base.html' %}{% block page_title %}기준정보 관리
+<section class="panel" style="margin-top:18px"><div class="panel-title"><div><h2>유선상품 기준정보</h2><span>인터넷·TV 상품이 바뀌면 여기서 추가하거나 사용중지할 수 있습니다.</span></div></div>
+<form method="post" class="filterbar"><input type="hidden" name="kind" value="wired">
+<select name="carrier"><option>SK</option><option>KT</option><option>LG</option></select>
+<select name="category"><option value="internet">인터넷</option><option value="tv">TV</option></select>
+<input name="name" placeholder="상품/요금제명" required>
+<select name="speed"><option value="">속도 없음</option><option>100M</option><option>500M</option><option>1G</option></select>
+<button class="btn primary">유선상품 추가</button></form>
+<div class="table-wrap"><table><thead><tr><th>통신사</th><th>구분</th><th>상품명</th><th>속도</th><th>상태</th></tr></thead><tbody>
+{% for w in wired_products %}<tr><td>{{w.carrier}}</td><td>{{'인터넷' if w.category=='internet' else 'TV'}}</td><td>{{w.name}}</td><td>{{w.speed or '-'}}</td><td><form method="post" action="{{url_for('master_wired_toggle',mid=w.id)}}"><button class="btn small">{{'사용중' if w.active else '중지됨'}}</button></form></td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}{% block content %}
+<div class="two-col"><section class="panel"><h2>통신사 요금제</h2><form method="post" class="filterbar"><input type="hidden" name="kind" value="plan"><select name="carrier"><option>SK</option><option>KT</option><option>LG</option></select><input name="name" placeholder="요금제명" required><button class="btn primary">추가</button></form><div class="table-wrap"><table><thead><tr><th>통신사</th><th>요금제</th><th>상태</th></tr></thead><tbody>{% for p in plans %}<tr><td>{{p.carrier}}</td><td>{{p.name}}</td><td><form method="post" action="{{url_for('master_plan_toggle',mid=p.id)}}"><button class="btn small">{{'사용중' if p.active else '중지됨'}}</button></form></td></tr>{% endfor %}</tbody></table></div></section>
+<section class="panel"><h2>단말기 기준정보</h2><form method="post" class="stack"><input type="hidden" name="kind" value="device"><label>제조사<select name="manufacturer"><option>삼성</option><option>애플</option><option>기타</option></select></label><label>모델명<input name="model" required></label><label>용량 <small class="muted">쉼표로 구분</small><input name="capacities" placeholder="256GB,512GB"></label><label>색상 <small class="muted">쉼표로 구분</small><input name="colors"></label><button class="btn primary">단말기 추가</button></form><div class="table-wrap"><table><thead><tr><th>제조사</th><th>모델</th><th>상태</th></tr></thead><tbody>{% for d in devices %}<tr><td>{{d.manufacturer}}</td><td>{{d.model}}<small class="cell-sub">{{d.capacities or ''}}</small></td><td><form method="post" action="{{url_for('master_device_toggle',mid=d.id)}}"><button class="btn small">{{'사용중' if d.active else '중지됨'}}</button></form></td></tr>{% endfor %}</tbody></table></div></section></div>
+<section class="panel" style="margin-top:18px"><div class="panel-title"><div><h2>유선상품 기준정보</h2><span>인터넷·TV 상품이 바뀌면 여기서 추가하거나 사용중지할 수 있습니다.</span></div></div>
+<form method="post" class="filterbar"><input type="hidden" name="kind" value="wired">
+<select name="carrier"><option>SK</option><option>KT</option><option>LG</option></select>
+<select name="category"><option value="internet">인터넷</option><option value="tv">TV</option></select>
+<input name="name" placeholder="상품/요금제명" required>
+<select name="speed"><option value="">속도 없음</option><option>100M</option><option>500M</option><option>1G</option></select>
+<button class="btn primary">유선상품 추가</button></form>
+<div class="table-wrap"><table><thead><tr><th>통신사</th><th>구분</th><th>상품명</th><th>속도</th><th>상태</th></tr></thead><tbody>
+{% for w in wired_products %}<tr><td>{{w.carrier}}</td><td>{{'인터넷' if w.category=='internet' else 'TV'}}</td><td>{{w.name}}</td><td>{{w.speed or '-'}}</td><td><form method="post" action="{{url_for('master_wired_toggle',mid=w.id)}}"><button class="btn small">{{'사용중' if w.active else '중지됨'}}</button></form></td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends 'base.html' %}{% block page_title %}{{'유선판매 수정' if item else '유선판매 등록'}}{% endblock %}{% block content %}
+<form method="post" id="wiredForm" class="stack-lg">
+<section class="panel form-panel"><div class="section-head"><span>01</span><div><h2>고객 / 판매정보</h2></div></div><div class="form-grid">
+<label>판매일<input type="date" name="sale_date" value="{{item.sale_date.isoformat() if item else today}}" required></label>
+<label>고객명<input name="customer_name" value="{{item.customer_name if item else ''}}" required></label>
+<label>연락처<input name="customer_phone" value="{{item.customer_phone if item else ''}}"></label>
+<label>가입자명<input name="subscriber_name" value="{{item.subscriber_name if item else ''}}"></label>
+<label>지점<select name="branch_id" {% if current_role!='admin' %}disabled{% endif %}><option value="">선택</option>{% for b in branches %}<option value="{{b.id}}" {% if (item and item.branch_id==b.id) or (not item and current_branch_id==b.id) %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select>{% if current_role!='admin' %}<input type="hidden" name="branch_id" value="{{current_branch_id}}">{% endif %}</label>
+<label>담당판매자<select name="assigned_staff">{% for u in staff %}{% set nm=u.display_name or u.username %}<option value="{{nm}}" {% if item and item.assigned_staff==nm %}selected{% elif not item and current_user==nm %}selected{% endif %}>{{nm}}</option>{% endfor %}</select></label>
+</div></section>
+
+<section class="panel form-panel"><div class="section-head"><span>02</span><div><h2>인터넷 / TV 상품</h2><p>통신사를 선택하면 현재 사용 중인 유선상품만 표시됩니다.</p></div></div><div class="form-grid">
+<label>통신사<select name="carrier" id="wiredCarrier"><option value="">선택</option>{% for v in ['SK','KT','LG'] %}<option value="{{v}}" {% if item and item.carrier==v %}selected{% endif %}>{{v}}</option>{% endfor %}</select></label>
+<label>상품종류<select name="product_type"><option value="인터넷" {% if item and item.product_type=='인터넷' %}selected{% endif %}>인터넷</option><option value="인터넷+TV" {% if item and item.product_type=='인터넷+TV' %}selected{% endif %}>인터넷+TV</option><option value="TV" {% if item and item.product_type=='TV' %}selected{% endif %}>TV</option></select></label>
+<label>인터넷 요금제<select name="internet_plan" id="internetPlan" data-selected="{{item.internet_plan if item else ''}}"><option value="">통신사 선택</option></select></label>
+<label>인터넷 속도<select name="internet_speed" id="internetSpeed"><option value="">선택안함</option>{% for v in ['100M','500M','1G'] %}<option value="{{v}}" {% if item and item.internet_speed==v %}selected{% endif %}>{{v}}</option>{% endfor %}</select></label>
+<label>TV 요금제<select name="tv_plan" id="tvPlan" data-selected="{{item.tv_plan if item else ''}}"><option value="">통신사 선택</option></select></label>
+<label>설치예정일<input type="date" name="install_due_date" value="{{item.install_due_date.isoformat() if item and item.install_due_date else ''}}"></label>
+<label>설치완료일<input type="date" name="install_date" value="{{item.install_date.isoformat() if item and item.install_date else ''}}"></label>
+<label>진행상태<select name="status">{% for v in ['접수','설치예정','설치완료','보류','취소'] %}<option value="{{v}}" {% if item and item.status==v %}selected{% endif %}>{{v}}</option>{% endfor %}</select></label>
+</div></section>
+
+<section class="panel form-panel"><div class="section-head"><span>03</span><div><h2>정산 / 최종마진</h2><p>차감금액은 양수로 입력하면 정산금에서 자동 차감합니다.</p></div></div>
+<div class="settlement-grid">
+<label>리베이트<input class="money-input wired-money" name="rebate" id="wRebate" value="{{item.rebate if item else 0}}"></label><span>＋</span>
+<label>구두추가<input class="money-input wired-money" name="verbal_extra" id="wVerbal" value="{{item.verbal_extra if item else 0}}"></label><span>＋</span>
+<label>정산 상품권<input class="money-input wired-money" name="gift_certificate" id="wGift" value="{{item.gift_certificate if item else 0}}"></label><span>－</span>
+<label>고객 지급 상품권<input class="money-input wired-money" name="gift_cost" id="wGiftCost" value="{{item.gift_cost if item else 0}}"></label><span>－</span>
+<label>차감금액<input class="money-input wired-money" name="deduction" id="wDeduction" value="{{item.deduction if item else 0}}"></label>
+</div>
+<div class="form-grid compact-grid">
+<label>고객 페이백<input class="money-input wired-money" name="payback" id="wPayback" value="{{item.payback if item else 0}}"></label>
+<label>상품권 반납금액<input class="money-input wired-money" name="gift_return" id="wGiftReturn" value="{{item.gift_return if item else 0}}"></label>
+</div>
+<div class="calc-strip"><div><span>정산금액</span><b id="wSettlement">{{'{:,}'.format(item.settlement_amount if item else 0)}}원</b></div><div><span>세금 13.3%</span><b id="wTax">{{'{:,}'.format(item.tax_amount if item else 0)}}원</b></div><div class="highlight"><span>최종마진</span><b id="wMargin">{{'{:,}'.format(item.final_margin if item else 0)}}원</b></div></div>
+</section>
+<section class="panel form-panel"><h2>메모</h2><textarea name="memo" rows="4">{{item.memo if item else ''}}</textarea></section>
+<div class="sticky-save"><a class="btn" href="{{url_for('wired_sales')}}">취소</a><button class="btn primary large">{{'수정 저장' if item else '유선판매 등록'}}</button></div>
+</form>
+<script>
+const wiredProducts={{ wired_product_data|tojson }};
+const carrier=document.getElementById('wiredCarrier');
+const internetPlan=document.getElementById('internetPlan');
+const internetSpeed=document.getElementById('internetSpeed');
+const tvPlan=document.getElementById('tvPlan');
+
+function fillSelect(select, rows, selected, placeholder){
+  select.innerHTML='';
+  const first=document.createElement('option'); first.value=''; first.textContent=placeholder; select.appendChild(first);
+  rows.forEach(x=>{const o=document.createElement('option');o.value=x.name;o.textContent=x.name;if(x.name===selected)o.selected=true;select.appendChild(o);});
+}
+function fillWiredProducts(){
+  const c=carrier.value;
+  fillSelect(internetPlan,wiredProducts.filter(x=>x.carrier===c&&x.category==='internet'),internetPlan.dataset.selected||internetPlan.value,'선택안함');
+  fillSelect(tvPlan,wiredProducts.filter(x=>x.carrier===c&&x.category==='tv'),tvPlan.dataset.selected||tvPlan.value,'선택안함');
+}
+carrier.addEventListener('change',()=>{internetPlan.dataset.selected='';tvPlan.dataset.selected='';fillWiredProducts();});
+internetPlan.addEventListener('change',()=>{
+  const x=wiredProducts.find(x=>x.carrier===carrier.value&&x.category==='internet'&&x.name===internetPlan.value);
+  if(x&&x.speed) internetSpeed.value=x.speed;
+});
+function n(id){return parseInt((document.getElementById(id)?.value||'0').replace(/,/g,''),10)||0}
+function calcW(){
+ const settlement=n('wRebate')+n('wVerbal')+n('wGift')-n('wGiftCost')-n('wDeduction');
+ const tax=Math.round(settlement*.133);
+ const margin=settlement-tax-n('wPayback')+n('wGiftReturn');
+ document.getElementById('wSettlement').textContent=settlement.toLocaleString()+'원';
+ document.getElementById('wTax').textContent=tax.toLocaleString()+'원';
+ document.getElementById('wMargin').textContent=margin.toLocaleString()+'원';
+}
+document.querySelectorAll('.wired-money').forEach(x=>x.addEventListener('input',calcW));
+fillWiredProducts(); calcW();
+</script>
+{% endblock %}
